@@ -1,0 +1,147 @@
+import SwiftUI
+
+struct SettingsView: View {
+    @AppStorage("themePreference") var themePreference: String = "system"
+    @EnvironmentObject var authManager: AuthManager
+    @Environment(\.fsTheme) var t
+    @Environment(\.dismiss) var dismiss
+
+    private var user: User? { authManager.currentUser }
+
+    private let themeOptions: [(label: String, icon: String, value: String)] = [
+        ("시스템", "circle.lefthalf.filled", "system"),
+        ("라이트", "sun.max", "light"),
+        ("다크", "moon", "dark"),
+    ]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // 핸들
+            Capsule().fill(t.textTer).frame(width: 36, height: 4)
+                .padding(.top, 12).padding(.bottom, 24)
+
+            ScrollView {
+                VStack(spacing: 20) {
+                    // 프로필 카드
+                    HStack(spacing: 14) {
+                        ZStack {
+                            Circle().fill(t.accent.opacity(0.15))
+                                .frame(width: 52, height: 52)
+                            Text(user?.name.prefix(1).uppercased() ?? "?")
+                                .font(.system(size: 22, weight: .black))
+                                .foregroundColor(t.accent)
+                        }
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(user?.name ?? "—")
+                                .font(.system(size: 17, weight: .bold))
+                                .foregroundColor(t.text)
+                            Text(user?.email ?? "—")
+                                .font(.system(size: 13))
+                                .foregroundColor(t.textSec)
+                        }
+                        Spacer()
+                    }
+                    .padding(16)
+                    .background(t.bgElev)
+                    .cornerRadius(16)
+                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(t.line, lineWidth: 0.5))
+                    .padding(.horizontal, 20)
+
+                    // 외관 섹션
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("외관")
+                            .font(.system(size: 11, weight: .bold))
+                            .kerning(0.6)
+                            .foregroundColor(t.textTer)
+                            .padding(.leading, 4)
+
+                        HStack(spacing: 8) {
+                            ForEach(themeOptions, id: \.value) { opt in
+                                Button {
+                                    themePreference = opt.value
+                                } label: {
+                                    VStack(spacing: 8) {
+                                        Image(systemName: opt.icon)
+                                            .font(.system(size: 18))
+                                            .foregroundColor(themePreference == opt.value ? .white : t.textSec)
+                                            .frame(width: 44, height: 44)
+                                            .background(themePreference == opt.value ? t.accent : t.bgElev3)
+                                            .clipShape(Circle())
+                                        Text(opt.label)
+                                            .font(.system(size: 11, weight: .semibold))
+                                            .foregroundColor(themePreference == opt.value ? t.accent : t.textSec)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 14)
+                                    .background(themePreference == opt.value ? t.accentSoft : t.bgElev)
+                                    .cornerRadius(14)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 14)
+                                            .stroke(themePreference == opt.value ? t.accent.opacity(0.4) : t.line, lineWidth: 0.5)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 20)
+
+                    // 앱 정보 섹션
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("앱 정보")
+                            .font(.system(size: 11, weight: .bold))
+                            .kerning(0.6)
+                            .foregroundColor(t.textTer)
+                            .padding(.leading, 4)
+
+                        VStack(spacing: 0) {
+                            infoRow(label: "버전", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—")
+                        }
+                        .background(t.bgElev)
+                        .cornerRadius(14)
+                        .overlay(RoundedRectangle(cornerRadius: 14).stroke(t.line, lineWidth: 0.5))
+                    }
+                    .padding(.horizontal, 20)
+
+                    // 로그아웃
+                    Button {
+                        authManager.logout()
+                        dismiss()
+                    } label: {
+                        HStack {
+                            Image(systemName: "rectangle.portrait.and.arrow.right")
+                                .font(.system(size: 15, weight: .semibold))
+                            Text("로그아웃")
+                                .font(.system(size: 15, weight: .semibold))
+                        }
+                        .foregroundColor(t.neg)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 52)
+                        .background(t.neg.opacity(0.08))
+                        .cornerRadius(14)
+                        .overlay(RoundedRectangle(cornerRadius: 14).stroke(t.neg.opacity(0.2), lineWidth: 0.5))
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 4)
+                    .padding(.bottom, 32)
+                }
+            }
+        }
+        .background(t.bg.ignoresSafeArea())
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.hidden)
+    }
+
+    @ViewBuilder
+    private func infoRow(label: String, value: String) -> some View {
+        HStack {
+            Text(label)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(t.text)
+            Spacer()
+            Text(value)
+                .font(.system(size: 14))
+                .foregroundColor(t.textSec)
+        }
+        .padding(.horizontal, 16).padding(.vertical, 13)
+    }
+}
