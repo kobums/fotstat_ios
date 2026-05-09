@@ -13,8 +13,7 @@
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		4EA8560E2FAB51ED00D86FF6 /* fotstat */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = fotstat;
-			sourceTree = "<group>";
+			sourceTree = SOURCE_ROOT;
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
