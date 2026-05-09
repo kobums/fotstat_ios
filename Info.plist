@@ -32,13 +32,6 @@
 				<key>NSIncludesSubdomains</key>
 				<false/>
 			</dict>
-			<key>10.0.1.14</key>
-			<dict>
-				<key>NSExceptionAllowsInsecureHTTPLoads</key>
-				<true/>
-				<key>NSIncludesSubdomains</key>
-				<false/>
-			</dict>
 		</dict>
 	</dict>
 

@@ -22,7 +22,7 @@ final class APIClient {
     static let shared = APIClient()
     private init() {}
 
-    private let baseURL = "http://10.0.1.14:8007/api"
+    private let baseURL = Config.baseURL
 
     func request<T: Decodable>(
         _ endpoint: Endpoint,
