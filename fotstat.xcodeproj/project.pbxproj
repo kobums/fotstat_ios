@@ -10,9 +10,23 @@
 		4EA8560C2FAB51ED00D86FF6 /* fotstat.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = fotstat.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		4EA8560F2FAB51FF00D86FF6 /* Exceptions for "fotstat" folder in "fotstat" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 4EA8560B2FAB51ED00D86FF6 /* fotstat */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		4EA8560E2FAB51ED00D86FF6 /* fotstat */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				4EA8560F2FAB51FF00D86FF6 /* Exceptions for "fotstat" folder in "fotstat" target */,
+			);
+			path = fotstat;
 			sourceTree = SOURCE_ROOT;
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -255,7 +269,7 @@
 				DEVELOPMENT_TEAM = M4VAR7JKUT;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_FILE = fotstat/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = fotstat;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -284,7 +298,7 @@
 				DEVELOPMENT_TEAM = M4VAR7JKUT;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_FILE = fotstat/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = fotstat;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

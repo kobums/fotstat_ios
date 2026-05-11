@@ -1,6 +1,7 @@
 # ===== 보안 =====
 # 서버 주소 등 민감 정보 포함 — Config.example.swift 참고
 Core/Network/Config.swift
+fotstat/Core/Network/Config.swift
 
 # ===== Xcode =====
 *.xcuserstate
