@@ -32,6 +32,11 @@ struct Player: Decodable, Identifiable {
     let name: String
     let number: Int?
     let pos: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, team, name, number
+        case pos = "position"
+    }
 }
 
 // MARK: - Match

@@ -53,12 +53,16 @@ extension Endpoint {
         Endpoint(path: "/player?team=\(teamId)", method: .GET)
     }
 
-    static func createPlayer(teamId: Int, name: String, number: Int) -> Endpoint {
-        Endpoint(path: "/player", method: .POST, body: ["team": teamId, "name": name, "number": number])
+    static func createPlayer(teamId: Int, name: String, number: Int, position: String? = nil) -> Endpoint {
+        var body: [String: Any] = ["team": teamId, "name": name, "number": number]
+        if let position { body["position"] = position }
+        return Endpoint(path: "/player", method: .POST, body: body)
     }
 
-    static func updatePlayer(id: Int, teamId: Int, name: String, number: Int) -> Endpoint {
-        Endpoint(path: "/player", method: .PUT, body: ["id": id, "team": teamId, "name": name, "number": number])
+    static func updatePlayer(id: Int, teamId: Int, name: String, number: Int, position: String? = nil) -> Endpoint {
+        var body: [String: Any] = ["id": id, "team": teamId, "name": name, "number": number]
+        if let position { body["position"] = position }
+        return Endpoint(path: "/player", method: .PUT, body: body)
     }
 
     static func deletePlayer(id: Int) -> Endpoint {
