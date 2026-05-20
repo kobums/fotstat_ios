@@ -13,6 +13,12 @@ struct Endpoint {
 // MARK: - Auth
 
 extension Endpoint {
+    static func appleLogin(identityToken: String, name: String) -> Endpoint {
+        var body: [String: Any] = ["identityToken": identityToken]
+        if !name.isEmpty { body["name"] = name }
+        return Endpoint(path: "/apple-auth", method: .POST, body: body)
+    }
+
     static func login(email: String, passwd: String) -> Endpoint {
         let e = email.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? email
         let p = passwd.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? passwd

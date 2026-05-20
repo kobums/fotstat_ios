@@ -68,7 +68,16 @@ struct LoginView: View {
                 .padding(.vertical, 20)
 
                 // Apple 로그인
-                Button {} label: {
+                Button {
+                    vm.appleCoordinator.onCompletion = { result in
+                        Task {
+                            if case .success(let cred) = result {
+                                await vm.loginWithApple(identityToken: cred.identityToken, name: cred.name)
+                            }
+                        }
+                    }
+                    vm.appleCoordinator.signIn()
+                } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "apple.logo").font(.system(size: 16, weight: .medium))
                         Text("Apple로 계속하기").font(.system(size: 15, weight: .semibold))
