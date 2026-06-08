@@ -8,6 +8,10 @@ struct SettingsView: View {
 
     private var user: User? { authManager.currentUser }
 
+    @State private var showDeleteConfirm = false
+    @State private var isDeleting = false
+    @State private var deleteError: String?
+
     private let themeOptions: [(label: String, icon: String, value: String)] = [
         ("시스템", "circle.lefthalf.filled", "system"),
         ("라이트", "sun.max", "light"),
@@ -122,6 +126,27 @@ struct SettingsView: View {
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 4)
+
+                    // 계정 삭제
+                    Button {
+                        showDeleteConfirm = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            if isDeleting {
+                                ProgressView()
+                            } else {
+                                Image(systemName: "trash")
+                                    .font(.system(size: 13, weight: .semibold))
+                            }
+                            Text("계정 삭제")
+                                .font(.system(size: 14, weight: .semibold))
+                        }
+                        .foregroundColor(t.textSec)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 46)
+                    }
+                    .disabled(isDeleting)
+                    .padding(.horizontal, 20)
                     .padding(.bottom, 32)
                 }
             }
@@ -129,6 +154,41 @@ struct SettingsView: View {
         .background(t.bg.ignoresSafeArea())
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.hidden)
+        .alert("계정을 삭제할까요?", isPresented: $showDeleteConfirm) {
+            Button("취소", role: .cancel) {}
+            Button("삭제", role: .destructive) {
+                Task { await deleteAccount() }
+            }
+        } message: {
+            Text("계정과 모든 팀·경기·선수·기록 데이터가 영구적으로 삭제되며 복구할 수 없습니다.")
+        }
+        .alert("삭제 실패", isPresented: Binding(
+            get: { deleteError != nil },
+            set: { if !$0 { deleteError = nil } }
+        )) {
+            Button("확인", role: .cancel) { deleteError = nil }
+        } message: {
+            Text(deleteError ?? "")
+        }
+    }
+
+    private func deleteAccount() async {
+        isDeleting = true
+        defer { isDeleting = false }
+        do {
+            let response = try await APIClient.shared.request(
+                .deleteAccount(),
+                responseType: CodeResponse.self
+            )
+            guard response.code == "ok" else {
+                deleteError = "계정 삭제에 실패했습니다."
+                return
+            }
+            authManager.logout()
+            dismiss()
+        } catch {
+            deleteError = error.localizedDescription
+        }
     }
 
     @ViewBuilder
