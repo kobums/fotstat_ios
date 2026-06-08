@@ -72,7 +72,7 @@ struct LoginView: View {
                     vm.appleCoordinator.onCompletion = { result in
                         Task {
                             if case .success(let cred) = result {
-                                await vm.loginWithApple(identityToken: cred.identityToken, name: cred.name)
+                                await vm.loginWithApple(identityToken: cred.identityToken, authorizationCode: cred.authorizationCode, name: cred.name)
                             }
                         }
                     }

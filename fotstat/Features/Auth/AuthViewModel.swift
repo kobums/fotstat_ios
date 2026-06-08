@@ -35,14 +35,14 @@ final class AuthViewModel: ObservableObject {
         }
     }
 
-    func loginWithApple(identityToken: String, name: String) async {
+    func loginWithApple(identityToken: String, authorizationCode: String, name: String) async {
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
 
         do {
             let response = try await APIClient.shared.request(
-                .appleLogin(identityToken: identityToken, name: name),
+                .appleLogin(identityToken: identityToken, authorizationCode: authorizationCode, name: name),
                 responseType: AuthResponse.self
             )
             guard response.code == "ok", let token = response.token, let user = response.user else {

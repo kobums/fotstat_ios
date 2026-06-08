@@ -13,8 +13,9 @@ struct Endpoint {
 // MARK: - Auth
 
 extension Endpoint {
-    static func appleLogin(identityToken: String, name: String) -> Endpoint {
+    static func appleLogin(identityToken: String, authorizationCode: String, name: String) -> Endpoint {
         var body: [String: Any] = ["identityToken": identityToken]
+        if !authorizationCode.isEmpty { body["authorizationCode"] = authorizationCode }
         if !name.isEmpty { body["name"] = name }
         return Endpoint(path: "/apple-auth", method: .POST, body: body)
     }
@@ -29,6 +30,10 @@ extension Endpoint {
         Endpoint(path: "/user", method: .POST, body: [
             "email": email, "password": password, "name": name
         ])
+    }
+
+    static func deleteAccount() -> Endpoint {
+        Endpoint(path: "/account", method: .DELETE)
     }
 }
 

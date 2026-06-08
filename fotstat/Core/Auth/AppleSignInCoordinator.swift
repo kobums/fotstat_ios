@@ -5,7 +5,7 @@ final class AppleSignInCoordinator: NSObject,
     ASAuthorizationControllerDelegate,
     ASAuthorizationControllerPresentationContextProviding {
 
-    var onCompletion: (Result<(identityToken: String, name: String), Error>) -> Void = { _ in }
+    var onCompletion: (Result<(identityToken: String, authorizationCode: String, name: String), Error>) -> Void = { _ in }
 
     func signIn() {
         let request = ASAuthorizationAppleIDProvider().createRequest()
@@ -33,11 +33,15 @@ final class AppleSignInCoordinator: NSObject,
             return
         }
 
-        let name = [cred.fullName?.givenName, cred.fullName?.familyName]
+        // 한국식 이름 표기: 성(familyName) + 이름(givenName), 공백 없이
+        let name = [cred.fullName?.familyName, cred.fullName?.givenName]
             .compactMap { $0 }
-            .joined(separator: " ")
+            .joined()
 
-        onCompletion(.success((identityToken: token, name: name)))
+        // authorizationCode는 서버에서 refresh token으로 교환해 계정 삭제 시 폐기에 사용
+        let authCode = cred.authorizationCode.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+
+        onCompletion(.success((identityToken: token, authorizationCode: authCode, name: name)))
     }
 
     func authorizationController(controller: ASAuthorizationController,
