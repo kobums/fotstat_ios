@@ -88,6 +88,18 @@ struct LoginView: View {
                     .overlay(RoundedRectangle(cornerRadius: 14).stroke(t.lineStrong, lineWidth: 0.5))
                 }
 
+                // 게스트 둘러보기 (로그인 없이 앱 사용)
+                Button { Task { await vm.continueAsGuest() } } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.right.circle").font(.system(size: 15, weight: .medium))
+                        Text("로그인 없이 둘러보기").font(.system(size: 15, weight: .semibold))
+                    }
+                    .foregroundColor(t.textSec)
+                    .frame(maxWidth: .infinity).frame(height: 48)
+                }
+                .disabled(vm.isLoading)
+                .padding(.top, 10)
+
                 Spacer()
 
                 Button { showRegister = true } label: {

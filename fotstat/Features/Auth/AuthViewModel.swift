@@ -55,6 +55,26 @@ final class AuthViewModel: ObservableObject {
         }
     }
 
+    func continueAsGuest() async {
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+
+        do {
+            let response = try await APIClient.shared.request(
+                .guest(),
+                responseType: AuthResponse.self
+            )
+            guard response.code == "ok", let token = response.token, let user = response.user else {
+                errorMessage = response.message ?? "게스트 시작에 실패했습니다."
+                return
+            }
+            AuthManager.shared.save(token: token, user: user, isGuest: true)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     func register() async {
         guard !email.isEmpty, !password.isEmpty, !name.isEmpty else {
             errorMessage = "모든 항목을 입력해주세요."

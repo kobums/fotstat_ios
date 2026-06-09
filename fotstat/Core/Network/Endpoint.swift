@@ -32,6 +32,10 @@ extension Endpoint {
         ])
     }
 
+    static func guest() -> Endpoint {
+        Endpoint(path: "/guest", method: .POST)
+    }
+
     static func deleteAccount() -> Endpoint {
         Endpoint(path: "/account", method: .DELETE)
     }
