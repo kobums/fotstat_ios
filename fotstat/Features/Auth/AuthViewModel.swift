@@ -75,6 +75,34 @@ final class AuthViewModel: ObservableObject {
         }
     }
 
+    /// Converts the current guest account into a full account in place,
+    /// keeping all data. Returns true on success so the caller can dismiss.
+    func upgradeAccount() async -> Bool {
+        guard !email.isEmpty, !password.isEmpty else {
+            errorMessage = "이메일과 비밀번호를 입력해주세요."
+            return false
+        }
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+
+        do {
+            let response = try await APIClient.shared.request(
+                .upgradeAccount(email: email, password: password, name: name),
+                responseType: AuthResponse.self
+            )
+            guard response.code == "ok", let token = response.token, let user = response.user else {
+                errorMessage = response.message ?? "가입에 실패했습니다."
+                return false
+            }
+            AuthManager.shared.save(token: token, user: user, isGuest: false)
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
     func register() async {
         guard !email.isEmpty, !password.isEmpty, !name.isEmpty else {
             errorMessage = "모든 항목을 입력해주세요."

@@ -36,6 +36,12 @@ extension Endpoint {
         Endpoint(path: "/guest", method: .POST)
     }
 
+    static func upgradeAccount(email: String, password: String, name: String) -> Endpoint {
+        Endpoint(path: "/account/upgrade", method: .POST, body: [
+            "email": email, "password": password, "name": name
+        ])
+    }
+
     static func deleteAccount() -> Endpoint {
         Endpoint(path: "/account", method: .DELETE)
     }

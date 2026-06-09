@@ -11,6 +11,7 @@ struct SettingsView: View {
     @State private var showDeleteConfirm = false
     @State private var isDeleting = false
     @State private var deleteError: String?
+    @State private var showUpgrade = false
 
     private let themeOptions: [(label: String, icon: String, value: String)] = [
         ("시스템", "circle.lefthalf.filled", "system"),
@@ -39,7 +40,7 @@ struct SettingsView: View {
                             Text(user?.name ?? "—")
                                 .font(.system(size: 17, weight: .bold))
                                 .foregroundColor(t.text)
-                            Text(user?.email ?? "—")
+                            Text(authManager.isGuest ? "게스트 모드" : (user?.email ?? "—"))
                                 .font(.system(size: 13))
                                 .foregroundColor(t.textSec)
                         }
@@ -50,6 +51,35 @@ struct SettingsView: View {
                     .cornerRadius(16)
                     .overlay(RoundedRectangle(cornerRadius: 16).stroke(t.line, lineWidth: 0.5))
                     .padding(.horizontal, 20)
+
+                    // 게스트 → 가입 유도 배너
+                    if authManager.isGuest {
+                        Button { showUpgrade = true } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "person.crop.circle.badge.plus")
+                                    .font(.system(size: 22))
+                                    .foregroundColor(t.accent)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("계정 만들기")
+                                        .font(.system(size: 15, weight: .bold))
+                                        .foregroundColor(t.text)
+                                    Text("가입하면 지금 기록이 안전하게 보관됩니다")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(t.textSec)
+                                        .multilineTextAlignment(.leading)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(t.textTer)
+                            }
+                            .padding(16)
+                            .background(t.accentSoft)
+                            .cornerRadius(16)
+                            .overlay(RoundedRectangle(cornerRadius: 16).stroke(t.accent.opacity(0.3), lineWidth: 0.5))
+                        }
+                        .padding(.horizontal, 20)
+                    }
 
                     // 외관 섹션
                     VStack(alignment: .leading, spacing: 10) {
@@ -154,6 +184,9 @@ struct SettingsView: View {
         .background(t.bg.ignoresSafeArea())
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.hidden)
+        .sheet(isPresented: $showUpgrade) {
+            UpgradeAccountView().environment(\.fsTheme, t)
+        }
         .alert("계정을 삭제할까요?", isPresented: $showDeleteConfirm) {
             Button("취소", role: .cancel) {}
             Button("삭제", role: .destructive) {
