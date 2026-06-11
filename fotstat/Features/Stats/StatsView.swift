@@ -1,5 +1,7 @@
 import SwiftUI
 
+private let playingTimeEmptyHint = "경기 기록에서 출전 시간(분)을 입력하면\n선수별 출전 시간 순위가 표시됩니다"
+
 // MARK: - TeamStatsContentView (Stats 탭)
 
 struct TeamStatsContentView: View {
@@ -52,7 +54,8 @@ struct TeamStatsContentView: View {
                             RankingSection(title: "출전 시간 순위", players: stats.players,
                                 value: { $0.min },
                                 valueLabel: { "\($0.min)'" },
-                                subLabel: { "\($0.goal)G \($0.assist)A" })
+                                subLabel: { "\($0.goal)G \($0.assist)A" },
+                                emptyHint: playingTimeEmptyHint)
                         }
                     }
                 }
@@ -142,7 +145,8 @@ struct StatsView: View {
                             RankingSection(title: "출전 시간 순위", players: stats.players,
                                 value: { $0.min },
                                 valueLabel: { "\($0.min)'" },
-                                subLabel: { "\($0.goal)G \($0.assist)A" })
+                                subLabel: { "\($0.goal)G \($0.assist)A" },
+                                emptyHint: playingTimeEmptyHint)
                         } else if vm.isLoadingStats {
                             ProgressView().padding(.top, 40)
                         }
@@ -213,6 +217,7 @@ struct RankingSection: View {
     let value: (PlayerStats) -> Int
     let valueLabel: (PlayerStats) -> String
     let subLabel: (PlayerStats) -> String
+    var emptyHint: String? = nil
     @State private var selectedPlayer: PlayerStats? = nil
     @State private var showAll = false
     @Environment(\.fsTheme) var t
@@ -273,6 +278,18 @@ struct RankingSection: View {
                 )
                 .environment(\.fsTheme, t)
             }
+        } else if let hint = emptyHint {
+            FSSectionHeader(title: title)
+            Text(hint)
+                .font(.system(size: 13))
+                .foregroundColor(t.textSec)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 20)
+                .background(t.bgElev)
+                .cornerRadius(12)
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(t.line, lineWidth: 0.5))
+                .padding(.horizontal, 16)
         }
     }
 }
