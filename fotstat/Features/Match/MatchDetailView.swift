@@ -203,13 +203,7 @@ struct AddQuarterSheet: View {
     @Environment(\.dismiss) var dismiss
 
     private var quarterLabel: String {
-        switch quarterNumber {
-        case 1: return "전반"
-        case 2: return "후반"
-        case 3: return "연장 전반"
-        case 4: return "연장 후반"
-        default: return "\(quarterNumber)쿼터"
-        }
+        "Q\(quarterNumber)"
     }
 
     var body: some View {
@@ -301,19 +295,13 @@ struct QuarterDetailRow: View {
     }
 
     private var label: String {
-        switch summary.quarter.number {
-        case 1: return "전반 · Q1"
-        case 2: return "후반 · Q2"
-        case 3: return "연장 전반 · Q3"
-        case 4: return "연장 후반 · Q4"
-        default: return "\(summary.quarter.number)쿼터"
-        }
+        "Q\(summary.quarter.number)"
     }
 
     var body: some View {
         HStack {
             Text(label)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 15, weight: .semibold))
                 .foregroundColor(t.text)
                 .frame(maxWidth: .infinity, alignment: .leading)
             Text("\(summary.homeGoals)")
@@ -356,7 +344,9 @@ struct QuarterDetailRow: View {
                 .foregroundColor(t.textTer)
         }
         .font(.system(size: 14, design: .rounded))
+        .frame(minHeight: 28)
         .padding(.horizontal, 14).padding(.vertical, 10)
+        .contentShape(Rectangle())
         .overlay(Rectangle().fill(t.line).frame(height: 0.5), alignment: .top)
     }
 }
