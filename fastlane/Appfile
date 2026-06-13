@@ -1,0 +1,6 @@
+app_identifier("com.gowoobro.fotstat")          # 앱 번들 ID
+team_id(ENV["ASC_TEAM_ID"] || "M4VAR7JKUT")     # Apple Developer 팀 ID (.env로 덮어쓰기 가능)
+
+# App Store Connect API 키를 쓰므로 apple_id / itc_team_id 는 보통 불필요.
+# 필요 시 fastlane/.env 에서 환경변수로 주입.
+apple_id(ENV["FASTLANE_APPLE_ID"]) unless (ENV["FASTLANE_APPLE_ID"] || "").empty?

@@ -41,9 +41,15 @@ Thumbs.db
 # ===== 환경 설정 =====
 .env
 .env.*
+!fastlane/.env.default
 *.pem
 *.key
 *.p8
 *.p12
 *.mobileprovision
 AuthKey_*.p8
+
+# ===== fastlane =====
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/test_output/
