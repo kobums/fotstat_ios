@@ -31,6 +31,8 @@ cp fastlane/.env.default fastlane/.env
 ASC_KEY_ID=XXXXXXXXXX
 ASC_ISSUER_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ASC_KEY_FILEPATH=./fastlane/AuthKey.p8
+# 선택: 팀 ID를 .env로 덮어쓰려면 설정 (미설정 시 Appfile 기본값 사용)
+ASC_TEAM_ID=
 ```
 
 다운로드한 `.p8` 를 `ASC_KEY_FILEPATH` 경로(예: `fastlane/AuthKey.p8`)에 둔다.
