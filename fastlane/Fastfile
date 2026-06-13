@@ -1,0 +1,225 @@
+require "fileutils"
+
+default_platform(:ios)
+
+XCODEPROJ = "fotstat.xcodeproj"
+SCHEME    = "fotstat"
+APP_ID    = "com.gowoobro.fotstat"
+INFOPLIST = "fotstat/Info.plist"
+# App Store 릴리즈노트를 기록할 로케일 (앱의 기본 언어에 맞춤)
+RELEASE_LOCALE = ENV["ASC_LOCALE"] || "ko"
+
+# 인증/자격증명 오류는 "첫 업로드(빌드 없음)"와 달리 치명적이므로 재발생시킨다.
+def auth_error?(message)
+  message.to_s.match?(/Authentication credentials|invalid.*token|unauthorized|NOT_AUTHORIZED/i)
+end
+
+platform :ios do
+  # ---------------------------------------------------------------------------
+  # 공개 레인
+  # ---------------------------------------------------------------------------
+
+  desc "TestFlight 배포: 빌드번호 +1 → 아카이브 → 업로드(체인지로그 자동)"
+  lane :beta do
+    key   = load_api_key
+    bump_build(api_key: key)
+    notes = git_changelog
+    archive
+    upload_to_testflight(
+      api_key: key,
+      changelog: notes,
+      distribute_external: false,
+      skip_waiting_for_build_processing: false
+    )
+    finalize_git(release: false)
+    UI.success("✅ TestFlight 업로드 완료")
+  end
+
+  desc "App Store 심사 제출: 빌드번호 +1 → 릴리즈노트 기록 → 아카이브 → 업로드(처리 대기) → 심사 제출"
+  lane :release do
+    key   = load_api_key
+    bump_build(api_key: key, include_app_store: true)
+    notes = git_changelog
+    write_release_notes(notes: notes)
+    archive
+
+    # 1) 바이너리 업로드 + App Store Connect 처리(Processing) 완료까지 대기.
+    #    처리 전에는 빌드를 버전에 연결할 수 없어 심사 제출이 실패하므로 반드시 대기한다.
+    #    외부 배포·테스터 알림 없이 업로드만 수행.
+    upload_to_testflight(
+      api_key: key,
+      distribute_external: false,
+      skip_submission: true,
+      skip_waiting_for_build_processing: false
+    )
+
+    # 2) 처리된 빌드에 릴리즈노트(metadata)를 붙여 심사 제출. 바이너리는 재업로드하지 않음.
+    upload_to_app_store(
+      api_key: key,
+      skip_binary_upload: true,          # 1)에서 이미 업로드·처리됨
+      submit_for_review: true,
+      reject_if_possible: true,          # 심사 대기/거부 상태면 취소하고 새 빌드로 재제출
+      automatic_release: true,           # 승인되면 자동 출시
+      force: true,                       # HTML 미리보기 확인 생략
+      skip_screenshots: true,
+      skip_metadata: false,              # release_notes.txt 만 갱신
+      run_precheck_before_submit: false,
+      precheck_include_in_app_purchases: false,
+      submission_information: {
+        export_compliance_uses_encryption: false,
+        add_id_info_uses_idfa: false
+      }
+    )
+    finalize_git(release: true)
+    UI.success("✅ App Store 심사 제출 완료")
+  end
+
+  desc "마케팅 버전 올리기 (사용법: fastlane bump_version type:patch|minor|major)"
+  lane :bump_version do |options|
+    type = options[:type] || "patch"
+    current = get_version_number(xcodeproj: XCODEPROJ, target: SCHEME)
+    major, minor, patch = "#{current}.0.0".split(".").map(&:to_i)
+    case type
+    when "major" then major += 1; minor = 0; patch = 0
+    when "minor" then minor += 1; patch = 0
+    else patch += 1
+    end
+    new_v = "#{major}.#{minor}.#{patch}"
+    # MARKETING_VERSION 빌드 세팅을 직접 수정 (agvtool은 Info.plist 변수 참조를 손상시킴)
+    pbxproj = "#{XCODEPROJ}/project.pbxproj"
+    content = File.read(pbxproj)
+    content.gsub!(/MARKETING_VERSION = [^;]+;/, "MARKETING_VERSION = #{new_v};")
+    File.write(pbxproj, content)
+    UI.success("마케팅 버전 #{current} → #{new_v}")
+  end
+
+  desc "App Store 버전/상태 조회 (fastlane status)"
+  lane :status do
+    load_api_key
+    app = Spaceship::ConnectAPI::App.find(APP_ID)
+    UI.message("App: #{app.name} (#{app.id})")
+    UI.header("App Store Versions")
+    app.get_app_store_versions(includes: "build").each do |v|
+      b = (v.build rescue nil)
+      UI.message("v#{v.version_string}  state=#{v.app_store_state}  build=#{b&.version}  versionId=#{v.id}")
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # 내부 헬퍼 레인
+  # ---------------------------------------------------------------------------
+
+  desc "앱 아카이브 + IPA 추출 (App Store 배포용)"
+  private_lane :archive do
+    build_app(
+      scheme: SCHEME,
+      project: XCODEPROJ,
+      export_method: "app-store",
+      output_directory: "build",
+      clean: true
+    )
+  end
+
+  desc "App Store Connect API 키 로드 (.env 의 ASC_* 사용)"
+  private_lane :load_api_key do
+    app_store_connect_api_key(
+      key_id: ENV.fetch("ASC_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+      key_filepath: ENV.fetch("ASC_KEY_FILEPATH"),
+      duration: 1200,
+      in_house: false
+    )
+  end
+
+  desc "빌드번호를 (TestFlight·App Store 최신) +1 로 설정"
+  private_lane :bump_build do |options|
+    version = get_version_number(xcodeproj: XCODEPROJ, target: SCHEME)
+    candidates = [0]
+
+    candidates << begin
+      latest_testflight_build_number(
+        api_key: options[:api_key],
+        version: version,
+        app_identifier: APP_ID
+      ).to_i
+    rescue => e
+      UI.user_error!("App Store Connect 인증 실패 — .env 의 ASC_KEY_ID/ASC_ISSUER_ID/.p8 를 확인하세요.\n#{e.message}") if auth_error?(e.message)
+      UI.important("TestFlight 빌드번호 조회 실패(첫 업로드일 수 있음): #{e.message}")
+      0
+    end
+
+    if options[:include_app_store]
+      candidates << begin
+        app_store_build_number(
+          api_key: options[:api_key],
+          live: false,
+          version: version,
+          app_identifier: APP_ID
+        ).to_i
+      rescue => e
+        UI.user_error!("App Store Connect 인증 실패 — .env 의 ASC_KEY_ID/ASC_ISSUER_ID/.p8 를 확인하세요.\n#{e.message}") if auth_error?(e.message)
+        UI.important("App Store 빌드번호 조회 실패: #{e.message}")
+        0
+      end
+    end
+
+    next_build = candidates.max + 1
+    # agvtool(increment_build_number)은 Info.plist의 $(...) 변수 참조를 리터럴로
+    # 덮어써 손상시키므로, Info.plist에 직접 빌드번호를 기록한다.
+    set_info_plist_value(path: INFOPLIST, key: "CFBundleVersion", value: next_build.to_s)
+    UI.message("버전 #{version} / 빌드번호 → #{next_build}")
+  end
+
+  desc "마지막 태그 이후 커밋으로 체인지로그 생성"
+  private_lane :git_changelog do
+    last_tag = (last_git_tag rescue nil)
+    notes =
+      if last_tag
+        changelog_from_git_commits(
+          between: [last_tag, "HEAD"],
+          pretty: "- %s",
+          merge_commit_filtering: "exclude_merges"
+        )
+      else
+        changelog_from_git_commits(
+          commits_count: 30,
+          pretty: "- %s",
+          merge_commit_filtering: "exclude_merges"
+        )
+      end
+    notes = "- 안정성 개선 및 버그 수정" if notes.nil? || notes.strip.empty?
+    UI.message("체인지로그:\n#{notes}")
+    notes
+  end
+
+  desc "App Store 릴리즈노트 파일에 기록"
+  private_lane :write_release_notes do |options|
+    notes = options[:notes]
+    path = File.join(__dir__, "metadata", RELEASE_LOCALE, "release_notes.txt")
+    FileUtils.mkdir_p(File.dirname(path))
+    File.write(path, notes)
+    UI.message("릴리즈노트 기록: #{path}")
+  end
+
+  desc "버전 커밋 + 태그 (PUSH_AFTER_DEPLOY=1 이면 원격 푸시)"
+  private_lane :finalize_git do |options|
+    version = get_version_number(xcodeproj: XCODEPROJ, target: SCHEME)
+    build   = get_info_plist_value(path: INFOPLIST, key: "CFBundleVersion")
+    paths = [INFOPLIST]
+    paths << "fastlane/metadata/#{RELEASE_LOCALE}/release_notes.txt" if options[:release]
+    # 새로 생성된(untracked) 파일은 git commit <path>로 못 잡으므로 먼저 스테이징한다.
+    git_add(path: paths)
+    git_commit(path: paths, message: "chore(release): #{version} (#{build})")
+    add_git_tag(tag: "v#{version}-#{build}")
+    if ENV["PUSH_AFTER_DEPLOY"] == "1"
+      push_to_git_remote(tags: true)
+      UI.message("원격 푸시 완료")
+    else
+      UI.message("로컬 커밋/태그만 생성 (원격 푸시하려면 PUSH_AFTER_DEPLOY=1)")
+    end
+  end
+
+  error do |lane, exception|
+    UI.error("❌ #{lane} 실패: #{exception.message}")
+  end
+end
