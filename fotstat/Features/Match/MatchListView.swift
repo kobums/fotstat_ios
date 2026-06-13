@@ -138,12 +138,24 @@ struct MatchListView: View {
                     Task { await vm.deleteMatch(id: match.id) }
                 }
                 pendingDelete = nil
+                openSwipeID = nil  // 다이얼로그 종료 후 열린 패널 닫기
             }
-            Button("취소", role: .cancel) { pendingDelete = nil }
+            Button("취소", role: .cancel) {
+                pendingDelete = nil
+                openSwipeID = nil
+            }
         } message: {
             if let match = pendingDelete {
                 Text("'\(match.awayname)' 경기를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.")
             }
+        }
+        .alert(
+            "오류",
+            isPresented: Binding(get: { vm.errorMessage != nil }, set: { if !$0 { vm.errorMessage = nil } })
+        ) {
+            Button("확인", role: .cancel) { vm.errorMessage = nil }
+        } message: {
+            Text(vm.errorMessage ?? "")
         }
     }
 }

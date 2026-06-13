@@ -13,6 +13,8 @@ struct FSSwipeToDelete<Content: View, ID: Hashable>: View {
 
     @Environment(\.fsTheme) var t
     @State private var offset: CGFloat = 0
+    /// 드래그 시작 시 방향을 한 번만 판정해 잠근다(수평일 때만 true). 끝나면 nil로 리셋.
+    @State private var horizontalLock: Bool?
 
     private let revealWidth: CGFloat = 76
 
@@ -24,7 +26,8 @@ struct FSSwipeToDelete<Content: View, ID: Hashable>: View {
     var body: some View {
         ZStack(alignment: .trailing) {
             Button(role: .destructive) {
-                close()
+                // 패널은 닫지 않고 삭제 의도만 알린다. 실제 닫힘은 다이얼로그 종료 후
+                // openID 변경으로 처리되어, 닫기 애니메이션과 다이얼로그 표시가 겹치지 않는다.
                 onDelete()
             } label: {
                 VStack(spacing: 4) {
@@ -33,10 +36,10 @@ struct FSSwipeToDelete<Content: View, ID: Hashable>: View {
                     Text("삭제")
                         .font(.system(size: 11, weight: .semibold))
                 }
-                .foregroundColor(.white)
+                .foregroundStyle(.white)
                 .frame(width: revealWidth)
                 .frame(maxHeight: .infinity)
-                .background(Color.red)
+                .background(t.neg)
             }
             .buttonStyle(.plain)
             // 스와이프하지 않은 상태에서는 카드 둥근 모서리로 빨간색이 비치지 않도록 숨김
@@ -48,8 +51,11 @@ struct FSSwipeToDelete<Content: View, ID: Hashable>: View {
                 .gesture(
                     DragGesture(minimumDistance: 16)
                         .onChanged { value in
-                            // 수평 이동이 수직보다 우세할 때만 반응 (스크롤과 공존)
-                            guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                            // 첫 이벤트에서 방향을 한 번 판정해 잠근다(스크롤과 공존)
+                            if horizontalLock == nil {
+                                horizontalLock = abs(value.translation.width) > abs(value.translation.height)
+                            }
+                            guard horizontalLock == true else { return }
                             let base = value.translation.width
                             if base < 0 {
                                 offset = max(base, -revealWidth)
@@ -59,6 +65,8 @@ struct FSSwipeToDelete<Content: View, ID: Hashable>: View {
                             }
                         }
                         .onEnded { value in
+                            defer { horizontalLock = nil }
+                            guard horizontalLock == true else { return }
                             if value.translation.width < -revealWidth / 2 {
                                 withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { offset = -revealWidth }
                                 openID = id
@@ -69,7 +77,7 @@ struct FSSwipeToDelete<Content: View, ID: Hashable>: View {
                 )
         }
         .clipped()
-        // 다른 row가 열리면 이 패널은 닫는다.
+        // 다른 row가 열리거나 패널을 닫으라는 신호(openID 변경)가 오면 이 패널을 닫는다.
         .onChange(of: openID) { _, newValue in
             if newValue != id && offset != 0 {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { offset = 0 }
