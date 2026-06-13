@@ -32,22 +32,6 @@ struct PlayerListView: View {
                     if vm.isLoading {
                         ProgressView().padding(.top, 80)
                     } else {
-                        // 컬럼 헤더
-                        HStack {
-                            Text("#").frame(width: 30, alignment: .leading)
-                            Text("선수").frame(maxWidth: .infinity, alignment: .leading)
-                            Text("경기").frame(width: 32, alignment: .center)
-                            Text("골").frame(width: 32, alignment: .center)
-                            Text("도움").frame(width: 32, alignment: .center)
-                            Text("분").frame(width: 38, alignment: .trailing)
-                        }
-                        .font(.system(size: 10, weight: .bold))
-                        .kerning(0.6)
-                        .textCase(.uppercase)
-                        .foregroundColor(t.textTer)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-
                         // 포지션별 그룹
                         ForEach(groupOrder, id: \.self) { grp in
                             let players = vm.players.filter { group($0.pos ?? "") == grp }
@@ -71,7 +55,7 @@ struct PlayerListView: View {
 
                                     VStack(spacing: 0) {
                                         ForEach(Array(players.enumerated()), id: \.element.id) { i, player in
-                                            PlayerRow(player: player, stat: vm.stats[player.id])
+                                            PlayerRow(player: player)
                                                 .contentShape(Rectangle())
                                                 .onTapGesture { editingPlayer = player }
                                             if i < players.count - 1 {
@@ -130,19 +114,18 @@ struct PlayerListView: View {
 
 struct PlayerRow: View {
     let player: Player
-    let stat: PlayerStat?
     @Environment(\.fsTheme) var t
 
     var body: some View {
         HStack {
             Text("\(player.number ?? 0)")
-                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .font(.system(size: 16, weight: .bold, design: .rounded))
                 .foregroundColor(t.textSec)
-                .frame(width: 30, alignment: .leading)
+                .frame(width: 32, alignment: .leading)
 
             HStack(spacing: 8) {
                 Text(player.name)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(t.text)
                 if let pos = player.pos {
                     FSPosChip(pos: pos)
@@ -150,22 +133,10 @@ struct PlayerRow: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            statText(stat?.games).frame(width: 32, alignment: .center)
-            statText(stat?.goals, accent: true).frame(width: 32, alignment: .center)
-            statText(stat?.assists).frame(width: 32, alignment: .center)
-            statText(stat?.minutes, suffix: "'").frame(width: 38, alignment: .trailing)
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12))
+                .foregroundColor(t.textTer)
         }
-        .padding(.horizontal, 10).padding(.vertical, 8)
-    }
-
-    @ViewBuilder
-    private func statText(_ value: Int?, accent: Bool = false, suffix: String = "") -> some View {
-        if let v = value {
-            Text("\(v)\(suffix)")
-                .font(.system(size: 14, weight: v > 0 ? .bold : .regular, design: .rounded))
-                .foregroundColor(v > 0 ? (accent ? t.accent : t.text) : t.textTer)
-        } else {
-            Text("—").font(.system(size: 14)).foregroundColor(t.textTer)
-        }
+        .padding(.horizontal, 12).padding(.vertical, 13)
     }
 }
