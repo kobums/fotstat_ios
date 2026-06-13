@@ -11,91 +11,52 @@ struct MatchListView: View {
         _vm = StateObject(wrappedValue: MatchViewModel(team: team))
     }
 
-    private var upcoming: [Match] {
-        vm.matches
-            .filter { ($0.parsedDate ?? .distantPast) > Date() }
-            .sorted { ($0.parsedDate ?? .distantPast) < ($1.parsedDate ?? .distantPast) }
-    }
-
-    private var finished: [Match] {
-        vm.matches
-            .filter { ($0.parsedDate ?? .distantPast) <= Date() }
-            .sorted { ($0.parsedDate ?? .distantPast) > ($1.parsedDate ?? .distantPast) }
-    }
-
     var body: some View {
         ZStack {
             ScrollView {
-                VStack(spacing: 0) {
+                LazyVStack(spacing: 0) {
                     FSTeamHeader(team: vm.team, tab: .matches)
 
                     if vm.isLoading {
                         ProgressView().padding(.top, 80)
                     } else {
-                        // 예정 경기
-                        FSSectionHeader(title: "예정 경기")
-                        if upcoming.isEmpty {
-                            Text("예정된 경기가 없습니다")
-                                .font(.system(size: 13))
-                                .foregroundColor(t.textSec)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 16)
-                        } else {
-                            VStack(spacing: 0) {
-                                ForEach(Array(upcoming.enumerated()), id: \.element.id) { i, match in
-                                    FSSwipeToDelete(id: match.id, openID: $openSwipeID) {
-                                        NavigationLink(value: match) {
-                                            MatchRow(match: match, teamName: vm.team.name, isUpcoming: true)
-                                        }
-                                        .buttonStyle(.plain)
-                                    } onDelete: {
-                                        pendingDelete = match
-                                    }
-                                    if i < upcoming.count - 1 {
-                                        Divider().background(t.line)
-                                    }
-                                }
-                            }
-                            .background(t.bgElev)
-                            .cornerRadius(12)
-                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(t.line, lineWidth: 0.5))
-                            .padding(.horizontal, 16)
+                        // 예정 경기 (상단 고정, 가까운 순)
+                        if !vm.upcomingMatches.isEmpty {
+                            FSSectionHeader(title: "예정 경기")
+                            matchCard(vm.upcomingMatches, isUpcoming: true)
                         }
 
-                        // 완료 경기
-                        HStack {
-                            FSSectionHeader(title: "완료 경기")
-                            Spacer()
-                        }
-
-                        if finished.isEmpty {
+                        // 지난 경기 (월별 그룹 + 무한 스크롤)
+                        if vm.monthSections.isEmpty && vm.upcomingMatches.isEmpty {
                             VStack(spacing: 12) {
                                 Image(systemName: "soccerball").font(.system(size: 40)).foregroundColor(t.textTer)
                                 Text("경기 기록이 없습니다").font(.system(size: 15)).foregroundColor(t.textSec)
                             }
                             .frame(maxWidth: .infinity).padding(.top, 40)
                         } else {
-                            VStack(spacing: 0) {
-                                ForEach(Array(finished.enumerated()), id: \.element.id) { i, match in
-                                    FSSwipeToDelete(id: match.id, openID: $openSwipeID) {
-                                        NavigationLink(value: match) {
-                                            MatchRow(match: match, teamName: vm.team.name)
-                                        }
-                                        .buttonStyle(.plain)
-                                    } onDelete: {
-                                        pendingDelete = match
-                                    }
-                                    if i < finished.count - 1 {
-                                        Divider().background(t.line)
-                                    }
-                                }
+                            ForEach(vm.monthSections) { section in
+                                MonthDivider(title: section.title)
+                                matchCard(section.matches, isUpcoming: false)
                             }
-                            .background(t.bgElev)
-                            .cornerRadius(12)
-                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(t.line, lineWidth: 0.5))
-                            .padding(.horizontal, 16)
                         }
 
+                        // 무한 스크롤 트리거 (다음 페이지 로드)
+                        if vm.hasMorePast {
+                            if vm.pastLoadFailed {
+                                Button { Task { await vm.loadMorePast() } } label: {
+                                    Text("다시 불러오기")
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundColor(t.accent)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 16)
+                                }
+                            } else {
+                                ProgressView()
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 20)
+                                    .onAppear { Task { await vm.loadMorePast() } }
+                            }
+                        }
                     }
                 }
                 .padding(.bottom, 100)
@@ -121,7 +82,7 @@ struct MatchListView: View {
             }
         }
         .background(t.bg.ignoresSafeArea())
-        .task { await vm.fetchMatches() }
+        .task { await vm.loadInitial() }
         .sheet(isPresented: $showAddMatch) {
             MatchFormView { awayName, matchDate in
                 Task { await vm.createMatch(awayName: awayName, matchDate: matchDate) }
@@ -157,6 +118,50 @@ struct MatchListView: View {
         } message: {
             Text(vm.errorMessage ?? "")
         }
+    }
+
+    // 경기 목록 카드 (예정/지난 공용)
+    @ViewBuilder
+    private func matchCard(_ matches: [Match], isUpcoming: Bool) -> some View {
+        VStack(spacing: 0) {
+            ForEach(Array(matches.enumerated()), id: \.element.id) { i, match in
+                FSSwipeToDelete(id: match.id, openID: $openSwipeID) {
+                    NavigationLink(value: match) {
+                        MatchRow(match: match, teamName: vm.team.name, isUpcoming: isUpcoming)
+                    }
+                    .buttonStyle(.plain)
+                } onDelete: {
+                    pendingDelete = match
+                }
+                if i < matches.count - 1 {
+                    Divider().background(t.line)
+                }
+            }
+        }
+        .background(t.bgElev)
+        .cornerRadius(12)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(t.line, lineWidth: 0.5))
+        .padding(.horizontal, 16)
+    }
+}
+
+// MARK: - MonthDivider
+
+struct MonthDivider: View {
+    let title: String
+    @Environment(\.fsTheme) var t
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Rectangle().fill(t.line).frame(height: 0.5)
+            Text(title)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(t.textSec)
+                .fixedSize()
+            Rectangle().fill(t.line).frame(height: 0.5)
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 18).padding(.bottom, 8)
     }
 }
 
@@ -211,5 +216,6 @@ struct MatchRow: View {
             }
         }
         .padding(.horizontal, 12).padding(.vertical, 10)
+        .contentShape(Rectangle())
     }
 }

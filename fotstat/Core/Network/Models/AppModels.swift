@@ -111,6 +111,7 @@ struct MatchStats: Decodable {
 struct ItemsResponse<T: Decodable>: Decodable {
     let code: String
     let items: [T]?
+    let total: Int?   // page=1 페이지네이션 응답에서만 채워짐
 }
 
 struct ItemResponse<T: Decodable>: Decodable {

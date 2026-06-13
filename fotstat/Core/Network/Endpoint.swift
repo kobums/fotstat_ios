@@ -98,6 +98,22 @@ extension Endpoint {
         Endpoint(path: "/match?team=\(teamId)", method: .GET)
     }
 
+    // 예정 경기: matchdate >= now, 가까운 순. 페이지네이션 없이 전체.
+    static func matchesUpcoming(teamId: Int, after: String) -> Endpoint {
+        let d = after.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? after
+        let asc = "matchdate asc"
+        let o = asc.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? asc
+        return Endpoint(path: "/match?team=\(teamId)&startmatchdate=\(d)&orderby=\(o)", method: .GET)
+    }
+
+    // 지난 경기: matchdate <= now, 최신순, 페이지네이션. page=1 응답에 total 포함.
+    static func matchesPast(teamId: Int, before: String, page: Int, pagesize: Int) -> Endpoint {
+        let d = before.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? before
+        let desc = "matchdate desc"
+        let o = desc.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? desc
+        return Endpoint(path: "/match?team=\(teamId)&endmatchdate=\(d)&page=\(page)&pagesize=\(pagesize)&orderby=\(o)", method: .GET)
+    }
+
     static func createMatch(teamId: Int, awayname: String, matchdate: String) -> Endpoint {
         Endpoint(path: "/match", method: .POST, body: [
             "team": teamId, "awayname": awayname, "matchdate": matchdate
@@ -140,10 +156,6 @@ extension Endpoint {
 extension Endpoint {
     static func records(quarterId: Int) -> Endpoint {
         Endpoint(path: "/record?quarter=\(quarterId)", method: .GET)
-    }
-
-    static func recordsByPlayer(playerId: Int) -> Endpoint {
-        Endpoint(path: "/record?player=\(playerId)", method: .GET)
     }
 
     static func createRecord(quarterId: Int, playerId: Int, min: Int, goal: Int, assist: Int) -> Endpoint {
