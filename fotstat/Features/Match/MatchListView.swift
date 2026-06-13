@@ -3,6 +3,8 @@ import SwiftUI
 struct MatchListView: View {
     @StateObject private var vm: MatchViewModel
     @State private var showAddMatch = false
+    @State private var pendingDelete: Match?
+    @State private var openSwipeID: Int?
     @Environment(\.fsTheme) var t
 
     init(team: Team) {
@@ -41,10 +43,14 @@ struct MatchListView: View {
                         } else {
                             VStack(spacing: 0) {
                                 ForEach(Array(upcoming.enumerated()), id: \.element.id) { i, match in
-                                    NavigationLink(value: match) {
-                                        MatchRow(match: match, teamName: vm.team.name, isUpcoming: true)
+                                    FSSwipeToDelete(id: match.id, openID: $openSwipeID) {
+                                        NavigationLink(value: match) {
+                                            MatchRow(match: match, teamName: vm.team.name, isUpcoming: true)
+                                        }
+                                        .buttonStyle(.plain)
+                                    } onDelete: {
+                                        pendingDelete = match
                                     }
-                                    .buttonStyle(.plain)
                                     if i < upcoming.count - 1 {
                                         Divider().background(t.line)
                                     }
@@ -71,10 +77,14 @@ struct MatchListView: View {
                         } else {
                             VStack(spacing: 0) {
                                 ForEach(Array(finished.enumerated()), id: \.element.id) { i, match in
-                                    NavigationLink(value: match) {
-                                        MatchRow(match: match, teamName: vm.team.name)
+                                    FSSwipeToDelete(id: match.id, openID: $openSwipeID) {
+                                        NavigationLink(value: match) {
+                                            MatchRow(match: match, teamName: vm.team.name)
+                                        }
+                                        .buttonStyle(.plain)
+                                    } onDelete: {
+                                        pendingDelete = match
                                     }
-                                    .buttonStyle(.plain)
                                     if i < finished.count - 1 {
                                         Divider().background(t.line)
                                     }
@@ -117,6 +127,35 @@ struct MatchListView: View {
                 Task { await vm.createMatch(awayName: awayName, matchDate: matchDate) }
             }
             .environment(\.fsTheme, t)
+        }
+        .confirmationDialog(
+            "경기 삭제",
+            isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button("삭제", role: .destructive) {
+                if let match = pendingDelete {
+                    Task { await vm.deleteMatch(id: match.id) }
+                }
+                pendingDelete = nil
+                openSwipeID = nil  // 다이얼로그 종료 후 열린 패널 닫기
+            }
+            Button("취소", role: .cancel) {
+                pendingDelete = nil
+                openSwipeID = nil
+            }
+        } message: {
+            if let match = pendingDelete {
+                Text("'\(match.awayname)' 경기를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.")
+            }
+        }
+        .alert(
+            "오류",
+            isPresented: Binding(get: { vm.errorMessage != nil }, set: { if !$0 { vm.errorMessage = nil } })
+        ) {
+            Button("확인", role: .cancel) { vm.errorMessage = nil }
+        } message: {
+            Text(vm.errorMessage ?? "")
         }
     }
 }
