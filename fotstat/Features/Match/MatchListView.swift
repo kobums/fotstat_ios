@@ -173,16 +173,21 @@ struct MatchRow: View {
     var isUpcoming: Bool = false
     @Environment(\.fsTheme) var t
 
+    private static let dateFormatter: DateFormatter = {
+        let f = DateFormatter(); f.dateFormat = "MM/dd"; return f
+    }()
+    private static let timeFormatter: DateFormatter = {
+        let f = DateFormatter(); f.dateFormat = "HH:mm"; return f
+    }()
+
     private var displayDate: String {
         guard let d = match.parsedDate else { return "" }
-        let f = DateFormatter(); f.dateFormat = "MM/dd"
-        return f.string(from: d)
+        return Self.dateFormatter.string(from: d)
     }
 
     private var displayTime: String {
         guard let d = match.parsedDate else { return "" }
-        let f = DateFormatter(); f.dateFormat = "HH:mm"
-        return f.string(from: d)
+        return Self.timeFormatter.string(from: d)
     }
 
     var body: some View {

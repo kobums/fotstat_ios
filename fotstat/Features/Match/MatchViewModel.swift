@@ -18,12 +18,14 @@ final class MatchViewModel: ObservableObject {
     // 경기 리스트 화면용 — 예정 고정 + 지난 경기 페이지네이션
     @Published var upcomingMatches: [Match] = []
     @Published var pastMatches: [Match] = []
+    @Published private(set) var monthSections: [MatchMonthSection] = []   // pastMatches 변경 시에만 재계산
     @Published var isLoadingMore = false
     @Published var pastLoadFailed = false       // 추가 로드 실패 → 자동 재시도 대신 수동 재시도
     private var pastPage = 0
     private var pastReachedEnd = false          // 마지막 페이지 도달(또는 초기 실패)
     private var pastCutoff = ""                 // loadInitial 시점 고정 — 모든 페이지가 동일 기준 사용
     private let pageSize = 20
+    private let calendar = Calendar.current
 
     var hasMorePast: Bool { !pastReachedEnd }
 
@@ -50,6 +52,7 @@ final class MatchViewModel: ObservableObject {
         pastReachedEnd = false
         pastLoadFailed = false
         pastMatches = []
+        monthSections = []
         pastCutoff = Self.dateFormatter.string(from: Date())   // 페이지네이션 기준 시각 고정
 
         async let upcomingReq = APIClient.shared.request(
@@ -67,6 +70,7 @@ final class MatchViewModel: ObservableObject {
             // 경계(now) 중복 방지: 예정 목록에 있는 경기는 지난 목록에서 제외
             let upcomingIds = Set(upcomingMatches.map { $0.id })
             pastMatches = pItems.filter { !upcomingIds.contains($0.id) }
+            rebuildMonthSections()
             pastPage = 1
             // 종료 판정: 받은 페이지가 pageSize 미만이거나 total 도달
             pastReachedEnd = pItems.count < pageSize || (pResp.total.map { pastMatches.count >= $0 } ?? false)
@@ -92,6 +96,7 @@ final class MatchViewModel: ObservableObject {
             let items = resp.items ?? []
             let newItems = items.filter { m in !pastMatches.contains(where: { $0.id == m.id }) }
             pastMatches.append(contentsOf: newItems)
+            rebuildMonthSections()
             pastPage = nextPage
             if items.count < pageSize { pastReachedEnd = true }
         } catch {
@@ -100,19 +105,18 @@ final class MatchViewModel: ObservableObject {
         }
     }
 
-    // 지난 경기 → 월별 섹션 (서버가 이미 matchdate desc 정렬, 등장 순서 보존)
-    var monthSections: [MatchMonthSection] {
+    // 지난 경기 → 월별 섹션 재계산 (pastMatches 변경 시에만 호출). 서버가 이미 matchdate desc 정렬, 등장 순서 보존
+    private func rebuildMonthSections() {
         var order: [String] = []
         var map: [String: [Match]] = [:]
-        let cal = Calendar.current
         for m in pastMatches {
             guard let d = m.parsedDate else { continue }
-            let c = cal.dateComponents([.year, .month], from: d)
+            let c = calendar.dateComponents([.year, .month], from: d)
             let key = String(format: "%04d-%02d", c.year ?? 0, c.month ?? 0)
             if map[key] == nil { map[key] = []; order.append(key) }
             map[key]?.append(m)
         }
-        return order.map { key in
+        monthSections = order.map { key in
             let p = key.split(separator: "-")
             return MatchMonthSection(id: key, title: "\(p[0])년 \(p[1])월", matches: map[key] ?? [])
         }
@@ -209,6 +213,7 @@ final class MatchViewModel: ObservableObject {
             matches.removeAll { $0.id == id }
             upcomingMatches.removeAll { $0.id == id }
             pastMatches.removeAll { $0.id == id }
+            rebuildMonthSections()
         } catch {
             errorMessage = error.localizedDescription
         }
