@@ -128,7 +128,6 @@ final class RecordViewModel: ObservableObject {
     }
 
     // record id 동기화 목적의 재조회. 성공 여부 반환. drafts(사용자 입력)는 덮어쓰지 않음
-    @discardableResult
     private func refreshRecords() async -> Bool {
         do {
             let resp = try await APIClient.shared.request(

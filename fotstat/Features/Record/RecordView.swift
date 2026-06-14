@@ -137,6 +137,14 @@ struct RecordView: View {
         .background(t.bg.ignoresSafeArea())
         .toolbar(.hidden, for: .navigationBar)
         .task { await vm.fetch() }
+        .alert(
+            "저장 실패",
+            isPresented: Binding(get: { vm.errorMessage != nil }, set: { if !$0 { vm.errorMessage = nil } })
+        ) {
+            Button("확인", role: .cancel) { vm.errorMessage = nil }
+        } message: {
+            Text(vm.errorMessage ?? "")
+        }
     }
 }
 
