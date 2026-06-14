@@ -47,11 +47,16 @@ struct Match: Decodable, Identifiable, Hashable {
     let awayname: String
     let matchdate: String
 
-    var parsedDate: Date? {
+    // 매 호출마다 DateFormatter를 새로 만들지 않도록 static 캐시 (parsedDate는 렌더마다 빈번히 호출됨)
+    private static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd HH:mm:ss"
         f.locale = Locale(identifier: "en_US_POSIX")
-        return f.date(from: matchdate)
+        return f
+    }()
+
+    var parsedDate: Date? {
+        Match.dateFormatter.date(from: matchdate)
     }
 }
 
