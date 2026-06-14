@@ -100,18 +100,35 @@ extension Endpoint {
 
     // 예정 경기: matchdate >= now, 가까운 순. 페이지네이션 없이 전체.
     static func matchesUpcoming(teamId: Int, after: String) -> Endpoint {
-        let d = after.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? after
-        let asc = "matchdate asc"
-        let o = asc.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? asc
-        return Endpoint(path: "/match?team=\(teamId)&startmatchdate=\(d)&orderby=\(o)", method: .GET)
+        Endpoint(path: matchListPath(teamId: teamId,
+                                     dateKey: "startmatchdate", date: after,
+                                     orderby: "matchdate asc"), method: .GET)
     }
 
     // 지난 경기: matchdate <= now, 최신순, 페이지네이션. page=1 응답에 total 포함.
     static func matchesPast(teamId: Int, before: String, page: Int, pagesize: Int) -> Endpoint {
-        let d = before.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? before
-        let desc = "matchdate desc"
-        let o = desc.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? desc
-        return Endpoint(path: "/match?team=\(teamId)&endmatchdate=\(d)&page=\(page)&pagesize=\(pagesize)&orderby=\(o)", method: .GET)
+        Endpoint(path: matchListPath(teamId: teamId,
+                                     dateKey: "endmatchdate", date: before,
+                                     orderby: "matchdate desc",
+                                     page: page, pagesize: pagesize), method: .GET)
+    }
+
+    // URLComponents로 쿼리를 구성해 날짜·orderby의 공백/특수문자를 안전하게 인코딩
+    private static func matchListPath(teamId: Int, dateKey: String, date: String,
+                                      orderby: String, page: Int? = nil, pagesize: Int? = nil) -> String {
+        var comps = URLComponents()
+        comps.path = "/match"
+        var items = [
+            URLQueryItem(name: "team", value: "\(teamId)"),
+            URLQueryItem(name: dateKey, value: date),
+        ]
+        if let page, let pagesize {
+            items.append(URLQueryItem(name: "page", value: "\(page)"))
+            items.append(URLQueryItem(name: "pagesize", value: "\(pagesize)"))
+        }
+        items.append(URLQueryItem(name: "orderby", value: orderby))
+        comps.queryItems = items
+        return comps.string ?? "/match?team=\(teamId)"
     }
 
     static func createMatch(teamId: Int, awayname: String, matchdate: String) -> Endpoint {
