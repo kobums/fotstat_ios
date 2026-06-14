@@ -144,6 +144,7 @@ struct RecordView: View {
 
 struct RecordPlayerCard: View {
     let player: Player
+    let draft: RecordViewModel.Draft
     let isActive: Bool
     let maxMinutes: Int
     let onTap: () -> Void
@@ -158,6 +159,7 @@ struct RecordPlayerCard: View {
 
     init(player: Player, draft: RecordViewModel.Draft, isActive: Bool, maxMinutes: Int, onTap: @escaping () -> Void, onUpdate: @escaping (Int, Int, Int) -> Void) {
         self.player = player
+        self.draft = draft
         self.isActive = isActive
         self.maxMinutes = maxMinutes
         self.onTap = onTap
@@ -166,6 +168,17 @@ struct RecordPlayerCard: View {
         _minsText = State(initialValue: draft.min == 0 ? "" : "\(draft.min)")
         _goals = State(initialValue: draft.goal)
         _assists = State(initialValue: draft.assist)
+    }
+
+    // 외부(서버 재조회 등)에서 draft가 바뀌면 로컬 입력 상태 동기화.
+    // 로컬 편집으로 인한 변경은 값이 같아 no-op이라 사용자 입력과 충돌하지 않음.
+    private func syncFromDraft(_ d: RecordViewModel.Draft) {
+        if d.min != mins {
+            mins = d.min
+            minsText = d.min == 0 ? "" : "\(d.min)"
+        }
+        if d.goal != goals { goals = d.goal }
+        if d.assist != assists { assists = d.assist }
     }
 
     var body: some View {
@@ -245,6 +258,7 @@ struct RecordPlayerCard: View {
         .contentShape(Rectangle())
         .onTapGesture { onTap() }
         .opacity(mins == 0 && !isActive ? 0.65 : 1)
+        .onChange(of: draft) { _, newDraft in syncFromDraft(newDraft) }
     }
 
     // 값 변경 즉시 ViewModel에 전달 → 합계 즉시 갱신. 서버 저장 디바운스는 ViewModel이 담당

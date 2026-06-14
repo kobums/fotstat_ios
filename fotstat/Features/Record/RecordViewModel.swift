@@ -138,6 +138,7 @@ final class RecordViewModel: ObservableObject {
             records = resp.items ?? []
             return true
         } catch {
+            errorMessage = error.localizedDescription   // 무음 실패 방지 — 저장 중단을 사용자에게 안내
             return false
         }
     }
