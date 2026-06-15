@@ -29,7 +29,7 @@ TestFlight 배포: 빌드번호 +1 → 아카이브 → 업로드(체인지로�
 [bundle exec] fastlane ios release
 ```
 
-App Store 심사 제출: 빌드번호 +1 → 릴리즈노트 기록 → 아카이브 → 업로드(처리 대기) → 심사 제출
+App Store 심사 제출: 마케팅버전 자동증가 → 빌드번호 +1 → 릴리즈노트 기록 → 아카이브 → 업로드(처리 대기) → 심사 제출
 
 ### ios bump_version
 
