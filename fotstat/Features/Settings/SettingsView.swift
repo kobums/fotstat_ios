@@ -138,8 +138,16 @@ struct SettingsView: View {
 
                     // 로그아웃
                     Button {
-                        authManager.logout()
-                        dismiss()
+                        Task {
+                            // Revoke the refresh token server-side while the
+                            // access token is still valid, then clear locally.
+                            // Best-effort: sign out locally even if it fails.
+                            try? await APIClient.shared.request(.logout(), responseType: CodeResponse.self)
+                            await MainActor.run {
+                                authManager.logout()
+                                dismiss()
+                            }
+                        }
                     } label: {
                         HStack {
                             Image(systemName: "rectangle.portrait.and.arrow.right")

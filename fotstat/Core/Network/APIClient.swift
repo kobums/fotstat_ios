@@ -18,15 +18,43 @@ enum APIError: Error, LocalizedError {
     }
 }
 
+/// Coalesces concurrent token refreshes into a single network call. When many
+/// requests get a 401 at once (e.g. on launch with an expired access token),
+/// only the first triggers `/refresh`; the rest await the same result.
+private actor TokenRefreshCoordinator {
+    private var inFlight: Task<Bool, Never>?
+
+    func refresh(_ perform: @escaping () async -> Bool) async -> Bool {
+        if let inFlight {
+            return await inFlight.value
+        }
+        let task = Task { await perform() }
+        inFlight = task
+        // Always clear the slot, even if awaiting is cancelled, so a future 401
+        // can start a fresh refresh instead of awaiting a stale task forever.
+        defer { inFlight = nil }
+        return await task.value
+    }
+}
+
 final class APIClient {
     static let shared = APIClient()
     private init() {}
 
     private let baseURL = Config.baseURL
+    private let refresher = TokenRefreshCoordinator()
 
     func request<T: Decodable>(
         _ endpoint: Endpoint,
         responseType: T.Type
+    ) async throws -> T {
+        try await request(endpoint, responseType: responseType, allowRetry: true)
+    }
+
+    private func request<T: Decodable>(
+        _ endpoint: Endpoint,
+        responseType: T.Type,
+        allowRetry: Bool
     ) async throws -> T {
         guard let url = URL(string: baseURL + endpoint.path) else {
             throw APIError.invalidURL
@@ -36,8 +64,9 @@ final class APIClient {
         req.httpMethod = endpoint.method.rawValue
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        if let token = AuthManager.shared.token {
-            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let sentToken = endpoint.requiresAuth ? AuthManager.shared.token : nil
+        if let sentToken {
+            req.setValue("Bearer \(sentToken)", forHTTPHeaderField: "Authorization")
         }
 
         if let body = endpoint.body {
@@ -54,7 +83,12 @@ final class APIClient {
         case 200...299:
             break
         case 401:
-            AuthManager.shared.logout()
+            // The access token expired. Try to silently renew it once with the
+            // refresh token, then replay the original request.
+            if endpoint.requiresAuth, allowRetry, await renewSession(staleToken: sentToken) {
+                return try await request(endpoint, responseType: responseType, allowRetry: false)
+            }
+            await MainActor.run { AuthManager.shared.logout() }
             throw APIError.unauthorized
         default:
             throw APIError.serverError(http.statusCode)
@@ -64,6 +98,48 @@ final class APIClient {
             return try JSONDecoder.fotstat.decode(T.self, from: data)
         } catch {
             throw APIError.decodingError
+        }
+    }
+
+    /// Renews the access token using the stored refresh token. Returns true if a
+    /// valid session is now in place. Coalesced so concurrent 401s refresh once.
+    private func renewSession(staleToken: String?) async -> Bool {
+        await refresher.refresh {
+            await Self.performRefresh(staleAccessToken: staleToken)
+        }
+    }
+
+    private static func performRefresh(staleAccessToken: String?) async -> Bool {
+        // Another request may have already refreshed while this one was queued
+        // behind the coordinator.
+        if let current = AuthManager.shared.token, current != staleAccessToken {
+            return true
+        }
+        guard let refreshToken = AuthManager.shared.refreshToken else {
+            return false
+        }
+
+        guard let url = URL(string: Config.baseURL + "/refresh") else { return false }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try? JSONSerialization.data(withJSONObject: ["refresh": refreshToken])
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                return false
+            }
+            let auth = try JSONDecoder.fotstat.decode(AuthResponse.self, from: data)
+            guard auth.code == "ok", let newToken = auth.token else {
+                return false
+            }
+            await MainActor.run {
+                AuthManager.shared.updateAfterRefresh(token: newToken, refresh: auth.refresh, user: auth.user)
+            }
+            return true
+        } catch {
+            return false
         }
     }
 }

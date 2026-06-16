@@ -8,6 +8,10 @@ struct Endpoint {
     let path: String
     let method: HTTPMethod
     var body: [String: Any]? = nil
+    /// Whether this call carries the user session. Public auth endpoints
+    /// (login, register, guest, refresh) set this false so the client neither
+    /// attaches a stale token nor tries to auto-refresh on a 401.
+    var requiresAuth: Bool = true
 }
 
 // MARK: - Auth
@@ -17,23 +21,27 @@ extension Endpoint {
         var body: [String: Any] = ["identityToken": identityToken]
         if !authorizationCode.isEmpty { body["authorizationCode"] = authorizationCode }
         if !name.isEmpty { body["name"] = name }
-        return Endpoint(path: "/apple-auth", method: .POST, body: body)
+        return Endpoint(path: "/apple-auth", method: .POST, body: body, requiresAuth: false)
     }
 
     static func login(email: String, passwd: String) -> Endpoint {
         let e = email.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? email
         let p = passwd.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? passwd
-        return Endpoint(path: "/jwt?email=\(e)&password=\(p)", method: .GET)
+        return Endpoint(path: "/jwt?email=\(e)&password=\(p)", method: .GET, requiresAuth: false)
     }
 
     static func register(email: String, password: String, name: String) -> Endpoint {
         Endpoint(path: "/user", method: .POST, body: [
             "email": email, "password": password, "name": name
-        ])
+        ], requiresAuth: false)
     }
 
     static func guest() -> Endpoint {
-        Endpoint(path: "/guest", method: .POST)
+        Endpoint(path: "/guest", method: .POST, requiresAuth: false)
+    }
+
+    static func refresh(token: String) -> Endpoint {
+        Endpoint(path: "/refresh", method: .POST, body: ["refresh": token], requiresAuth: false)
     }
 
     static func upgradeAccount(email: String, password: String, name: String) -> Endpoint {
@@ -44,6 +52,10 @@ extension Endpoint {
 
     static func deleteAccount() -> Endpoint {
         Endpoint(path: "/account", method: .DELETE)
+    }
+
+    static func logout() -> Endpoint {
+        Endpoint(path: "/logout", method: .POST)
     }
 }
 

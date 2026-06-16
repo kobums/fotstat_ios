@@ -29,7 +29,7 @@ final class AuthViewModel: ObservableObject {
                 errorMessage = response.message ?? "로그인에 실패했습니다."
                 return
             }
-            AuthManager.shared.save(token: token, user: user)
+            AuthManager.shared.save(token: token, refresh: response.refresh, user: user)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -49,7 +49,7 @@ final class AuthViewModel: ObservableObject {
                 errorMessage = response.message ?? "Apple 로그인에 실패했습니다."
                 return
             }
-            AuthManager.shared.save(token: token, user: user)
+            AuthManager.shared.save(token: token, refresh: response.refresh, user: user)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -69,7 +69,7 @@ final class AuthViewModel: ObservableObject {
                 errorMessage = response.message ?? "게스트 시작에 실패했습니다."
                 return
             }
-            AuthManager.shared.save(token: token, user: user, isGuest: true)
+            AuthManager.shared.save(token: token, refresh: response.refresh, user: user, isGuest: true)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -95,7 +95,7 @@ final class AuthViewModel: ObservableObject {
                 errorMessage = response.message ?? "가입에 실패했습니다."
                 return false
             }
-            AuthManager.shared.save(token: token, user: user, isGuest: false)
+            AuthManager.shared.save(token: token, refresh: response.refresh, user: user, isGuest: false)
             return true
         } catch {
             errorMessage = error.localizedDescription
