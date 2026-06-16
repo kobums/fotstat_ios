@@ -5,6 +5,7 @@ import Foundation
 struct AuthResponse: Decodable {
     let code: String
     let token: String?
+    let refresh: String?
     let user: User?
     let message: String?
 }
