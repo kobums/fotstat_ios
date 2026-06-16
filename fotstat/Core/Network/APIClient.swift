@@ -110,20 +110,27 @@ final class APIClient {
     }
 
     private static func performRefresh(staleAccessToken: String?) async -> Bool {
+        // AuthManager is MainActor-bound state; read its tokens on the main actor.
+        let (currentToken, refreshToken) = await MainActor.run {
+            (AuthManager.shared.token, AuthManager.shared.refreshToken)
+        }
         // Another request may have already refreshed while this one was queued
         // behind the coordinator.
-        if let current = AuthManager.shared.token, current != staleAccessToken {
+        if let currentToken, currentToken != staleAccessToken {
             return true
         }
-        guard let refreshToken = AuthManager.shared.refreshToken else {
+        guard let refreshToken else {
             return false
         }
 
-        guard let url = URL(string: Config.baseURL + "/refresh") else { return false }
+        let endpoint = Endpoint.refresh(token: refreshToken)
+        guard let url = URL(string: Config.baseURL + endpoint.path) else { return false }
         var req = URLRequest(url: url)
-        req.httpMethod = "POST"
+        req.httpMethod = endpoint.method.rawValue
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = try? JSONSerialization.data(withJSONObject: ["refresh": refreshToken])
+        if let body = endpoint.body {
+            req.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        }
 
         do {
             let (data, response) = try await URLSession.shared.data(for: req)
