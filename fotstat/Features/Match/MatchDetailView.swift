@@ -90,6 +90,8 @@ struct MatchDetailView: View {
                                         .font(.system(size: 56, weight: .black, design: .rounded))
                                         .foregroundColor(t.textSec)
                                 }
+                                .lineLimit(1)
+                                .fixedSize(horizontal: true, vertical: false)
                                 Text("FT")
                                     .font(.system(size: 10, weight: .bold))
                                     .kerning(0.5)
@@ -121,8 +123,8 @@ struct MatchDetailView: View {
                         VStack(spacing: 0) {
                             HStack {
                                 Text("쿼터").frame(maxWidth: .infinity, alignment: .leading)
-                                Text("홈").frame(width: 52, alignment: .center)
-                                Text("원정").frame(width: 52, alignment: .center)
+                                Text("홈").frame(width: 56, alignment: .center)
+                                Text("원정").frame(width: 76, alignment: .center)
                                 Text("시간").frame(width: 60, alignment: .trailing)
                             }
                             .font(.system(size: 10, weight: .bold)).kerning(0.4).textCase(.uppercase)
@@ -305,7 +307,7 @@ struct QuarterDetailRow: View {
                 .foregroundColor(t.text)
                 .frame(maxWidth: .infinity, alignment: .leading)
             Text("\(summary.homeGoals)")
-                .frame(width: 52, alignment: .center)
+                .frame(width: 56, alignment: .center)
                 .font(.system(size: 14, weight: .bold, design: .rounded))
                 .foregroundColor(t.text)
             // 원정 골 인라인 스테퍼
@@ -324,7 +326,7 @@ struct QuarterDetailRow: View {
                 Text("\(awayGoals)")
                     .font(.system(size: 14, weight: .bold, design: .rounded))
                     .foregroundColor(t.textSec)
-                    .frame(minWidth: 16, alignment: .center)
+                    .frame(minWidth: 22, alignment: .center)
                 Button {
                     awayGoals = min(99, awayGoals + 1)
                     onAwayGoalChange(awayGoals)
@@ -337,7 +339,7 @@ struct QuarterDetailRow: View {
                         .clipShape(Circle())
                 }
             }
-            .frame(width: 52, alignment: .center)
+            .frame(width: 76, alignment: .center)
             Text("\(summary.quarter.duration)'")
                 .frame(width: 60, alignment: .trailing)
                 .font(.system(size: 12))
