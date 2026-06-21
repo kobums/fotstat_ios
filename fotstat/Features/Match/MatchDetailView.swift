@@ -63,6 +63,8 @@ struct MatchDetailView: View {
                             Text(team.name)
                                 .font(.system(size: 13, weight: .bold))
                                 .multilineTextAlignment(.center)
+                                .lineLimit(2)
+                                .minimumScaleFactor(0.7)
                                 .foregroundColor(t.text)
                         }
                         .frame(maxWidth: .infinity)
@@ -81,17 +83,21 @@ struct MatchDetailView: View {
                                 HStack(alignment: .bottom, spacing: 14) {
                                     Text("\(totalHomeGoals)")
                                         .font(.system(size: 56, weight: .black, design: .rounded))
+                                        .monospacedDigit()
                                         .foregroundColor(t.text)
+                                        .lineLimit(1)
+                                        .fixedSize(horizontal: true, vertical: false)
                                     Text(":")
                                         .font(.system(size: 30, weight: .semibold, design: .rounded))
                                         .foregroundColor(t.textTer)
                                         .padding(.bottom, 8)
                                     Text("\(totalAwayGoals)")
                                         .font(.system(size: 56, weight: .black, design: .rounded))
+                                        .monospacedDigit()
                                         .foregroundColor(t.textSec)
+                                        .lineLimit(1)
+                                        .fixedSize(horizontal: true, vertical: false)
                                 }
-                                .lineLimit(1)
-                                .fixedSize(horizontal: true, vertical: false)
                                 Text("FT")
                                     .font(.system(size: 10, weight: .bold))
                                     .kerning(0.5)
@@ -104,6 +110,8 @@ struct MatchDetailView: View {
                             Text(match.awayname)
                                 .font(.system(size: 13, weight: .bold))
                                 .multilineTextAlignment(.center)
+                                .lineLimit(2)
+                                .minimumScaleFactor(0.7)
                                 .foregroundColor(t.text)
                         }
                         .frame(maxWidth: .infinity)
@@ -307,9 +315,10 @@ struct QuarterDetailRow: View {
                 .foregroundColor(t.text)
                 .frame(maxWidth: .infinity, alignment: .leading)
             Text("\(summary.homeGoals)")
-                .frame(width: 56, alignment: .center)
                 .font(.system(size: 14, weight: .bold, design: .rounded))
+                .monospacedDigit()
                 .foregroundColor(t.text)
+                .frame(width: 56, alignment: .center)
             // 원정 골 인라인 스테퍼
             HStack(spacing: 4) {
                 Button {
@@ -325,6 +334,7 @@ struct QuarterDetailRow: View {
                 }
                 Text("\(awayGoals)")
                     .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .monospacedDigit()
                     .foregroundColor(t.textSec)
                     .frame(minWidth: 22, alignment: .center)
                 Button {
