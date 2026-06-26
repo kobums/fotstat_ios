@@ -29,10 +29,10 @@ final class PlayerViewModel: ObservableObject {
         }
     }
 
-    func createPlayer(name: String, number: Int?, pos: String? = nil) async {
+    func createPlayer(name: String, number: Int?, pos: String? = nil, birthdate: String? = nil) async {
         do {
             _ = try await APIClient.shared.request(
-                .createPlayer(teamId: team.id, name: name, number: number ?? 0, position: pos),
+                .createPlayer(teamId: team.id, name: name, number: number ?? 0, position: pos, birthdate: birthdate),
                 responseType: CodeResponse.self
             )
             await fetchPlayers()
@@ -41,10 +41,10 @@ final class PlayerViewModel: ObservableObject {
         }
     }
 
-    func updatePlayer(id: Int, name: String, number: Int?, pos: String? = nil) async {
+    func updatePlayer(id: Int, name: String, number: Int?, pos: String? = nil, birthdate: String? = nil) async {
         do {
             _ = try await APIClient.shared.request(
-                .updatePlayer(id: id, teamId: team.id, name: name, number: number ?? 0, position: pos),
+                .updatePlayer(id: id, teamId: team.id, name: name, number: number ?? 0, position: pos, birthdate: birthdate),
                 responseType: CodeResponse.self
             )
             await fetchPlayers()

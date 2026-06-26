@@ -8,6 +8,8 @@ final class RecordViewModel: ObservableObject {
         var min: Int
         var goal: Int
         var assist: Int
+        var yellowcard: Int
+        var redcard: Int
     }
 
     @Published var records: [Record] = []
@@ -33,7 +35,7 @@ final class RecordViewModel: ObservableObject {
     var playedCount: Int { drafts.values.filter { $0.min > 0 }.count }   // 0분 제외 = 실제 출전 인원
 
     func draft(for playerId: Int) -> Draft {
-        drafts[playerId] ?? Draft(min: 0, goal: 0, assist: 0)
+        drafts[playerId] ?? Draft(min: 0, goal: 0, assist: 0, yellowcard: 0, redcard: 0)
     }
 
     func fetch() async {
@@ -62,14 +64,14 @@ final class RecordViewModel: ObservableObject {
     private func rebuildDrafts() {
         var next: [Int: Draft] = [:]
         for r in records {
-            next[r.player] = Draft(min: r.min, goal: r.goal, assist: r.assist)
+            next[r.player] = Draft(min: r.min, goal: r.goal, assist: r.assist, yellowcard: r.yellowcard, redcard: r.redcard)
         }
         drafts = next
     }
 
     // 카드 값이 바뀔 때마다 즉시 호출 → draft 갱신(합계 즉시 반영) 후 네트워크 저장은 디바운스
-    func updateDraft(playerId: Int, min: Int, goal: Int, assist: Int) {
-        drafts[playerId] = Draft(min: min, goal: goal, assist: assist)
+    func updateDraft(playerId: Int, min: Int, goal: Int, assist: Int, yellowcard: Int, redcard: Int) {
+        drafts[playerId] = Draft(min: min, goal: goal, assist: assist, yellowcard: yellowcard, redcard: redcard)
         saveTasks[playerId]?.cancel()
         saveTasks[playerId] = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 600_000_000) // 0.6초 디바운스
@@ -95,7 +97,7 @@ final class RecordViewModel: ObservableObject {
                 } else {
                     do {
                         _ = try await APIClient.shared.request(
-                            .createRecord(quarterId: quarter.id, playerId: playerId, min: d.min, goal: d.goal, assist: d.assist),
+                            .createRecord(quarterId: quarter.id, playerId: playerId, min: d.min, goal: d.goal, assist: d.assist, yellowcard: d.yellowcard, redcard: d.redcard),
                             responseType: CodeResponse.self
                         )
                     } catch {
@@ -115,7 +117,7 @@ final class RecordViewModel: ObservableObject {
             guard let existing = records.first(where: { $0.player == playerId }) else { return }
             do {
                 _ = try await APIClient.shared.request(
-                    .updateRecord(id: existing.id, quarterId: quarter.id, playerId: playerId, min: d.min, goal: d.goal, assist: d.assist),
+                    .updateRecord(id: existing.id, quarterId: quarter.id, playerId: playerId, min: d.min, goal: d.goal, assist: d.assist, yellowcard: d.yellowcard, redcard: d.redcard),
                     responseType: CodeResponse.self
                 )
             } catch {

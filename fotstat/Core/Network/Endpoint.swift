@@ -86,15 +86,18 @@ extension Endpoint {
         Endpoint(path: "/player?team=\(teamId)", method: .GET)
     }
 
-    static func createPlayer(teamId: Int, name: String, number: Int, position: String? = nil) -> Endpoint {
+    static func createPlayer(teamId: Int, name: String, number: Int, position: String? = nil, birthdate: String? = nil) -> Endpoint {
         var body: [String: Any] = ["team": teamId, "name": name, "number": number]
         if let position { body["position"] = position }
+        if let birthdate { body["birthdate"] = birthdate }
         return Endpoint(path: "/player", method: .POST, body: body)
     }
 
-    static func updatePlayer(id: Int, teamId: Int, name: String, number: Int, position: String? = nil) -> Endpoint {
+    static func updatePlayer(id: Int, teamId: Int, name: String, number: Int, position: String? = nil, birthdate: String? = nil) -> Endpoint {
         var body: [String: Any] = ["id": id, "team": teamId, "name": name, "number": number]
         if let position { body["position"] = position }
+        // Always send birthdate on update so clearing it persists (nil/"" -> backend NULL).
+        body["birthdate"] = birthdate ?? ""
         return Endpoint(path: "/player", method: .PUT, body: body)
     }
 
@@ -187,15 +190,17 @@ extension Endpoint {
         Endpoint(path: "/record?quarter=\(quarterId)", method: .GET)
     }
 
-    static func createRecord(quarterId: Int, playerId: Int, min: Int, goal: Int, assist: Int) -> Endpoint {
+    static func createRecord(quarterId: Int, playerId: Int, min: Int, goal: Int, assist: Int, yellowcard: Int, redcard: Int) -> Endpoint {
         Endpoint(path: "/record", method: .POST, body: [
-            "quarter": quarterId, "player": playerId, "min": min, "goal": goal, "assist": assist
+            "quarter": quarterId, "player": playerId, "min": min, "goal": goal, "assist": assist,
+            "yellowcard": yellowcard, "redcard": redcard
         ])
     }
 
-    static func updateRecord(id: Int, quarterId: Int, playerId: Int, min: Int, goal: Int, assist: Int) -> Endpoint {
+    static func updateRecord(id: Int, quarterId: Int, playerId: Int, min: Int, goal: Int, assist: Int, yellowcard: Int, redcard: Int) -> Endpoint {
         Endpoint(path: "/record/stats", method: .PUT, body: [
-            "id": id, "min": min, "goal": goal, "assist": assist
+            "id": id, "min": min, "goal": goal, "assist": assist,
+            "yellowcard": yellowcard, "redcard": redcard
         ])
     }
 
