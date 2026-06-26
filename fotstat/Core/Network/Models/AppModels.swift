@@ -32,10 +32,11 @@ struct Player: Decodable, Identifiable {
     let team: Int
     let name: String
     let number: Int?
+    let birthdate: String?
     let pos: String?
 
     enum CodingKeys: String, CodingKey {
-        case id, team, name, number
+        case id, team, name, number, birthdate
         case pos = "position"
     }
 }
@@ -80,6 +81,8 @@ struct Record: Decodable, Identifiable {
     let min: Int
     let goal: Int
     let assist: Int
+    let yellowcard: Int
+    let redcard: Int
 }
 
 // MARK: - Stats (not yet implemented in backend)

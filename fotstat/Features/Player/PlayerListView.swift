@@ -98,14 +98,14 @@ struct PlayerListView: View {
         .background(t.bg.ignoresSafeArea())
         .task { await vm.fetchPlayers() }
         .sheet(isPresented: $showAddPlayer) {
-            PlayerFormView(title: "선수 추가") { name, number, pos in
-                Task { await vm.createPlayer(name: name, number: number, pos: pos) }
+            PlayerFormView(title: "선수 추가") { name, number, pos, birthdate in
+                Task { await vm.createPlayer(name: name, number: number, pos: pos, birthdate: birthdate) }
             }
             .environment(\.fsTheme, t)
         }
         .sheet(item: $editingPlayer) { player in
-            PlayerFormView(title: "선수 수정", initialName: player.name, initialNumber: player.number, initialPos: player.pos) { name, number, pos in
-                Task { await vm.updatePlayer(id: player.id, name: name, number: number, pos: pos) }
+            PlayerFormView(title: "선수 수정", initialName: player.name, initialNumber: player.number, initialPos: player.pos, initialBirthdate: player.birthdate) { name, number, pos, birthdate in
+                Task { await vm.updatePlayer(id: player.id, name: name, number: number, pos: pos, birthdate: birthdate) }
             }
             .environment(\.fsTheme, t)
         }

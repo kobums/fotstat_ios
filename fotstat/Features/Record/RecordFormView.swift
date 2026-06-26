@@ -6,7 +6,9 @@ struct RecordFormView: View {
     var initialMin: Int = 0
     var initialGoal: Int = 0
     var initialAssist: Int = 0
-    let onSave: (Int, Int, Int, Int) -> Void
+    var initialYellowcard: Int = 0
+    var initialRedcard: Int = 0
+    let onSave: (Int, Int, Int, Int, Int, Int) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.fsTheme) var t
@@ -14,19 +16,26 @@ struct RecordFormView: View {
     @State private var min: Int
     @State private var goal: Int
     @State private var assist: Int
+    @State private var yellowcard: Int
+    @State private var redcard: Int
 
     init(players: [Player], initialPlayerId: Int? = nil, initialMin: Int = 0,
-         initialGoal: Int = 0, initialAssist: Int = 0, onSave: @escaping (Int, Int, Int, Int) -> Void) {
+         initialGoal: Int = 0, initialAssist: Int = 0, initialYellowcard: Int = 0,
+         initialRedcard: Int = 0, onSave: @escaping (Int, Int, Int, Int, Int, Int) -> Void) {
         self.players = players
         self.initialPlayerId = initialPlayerId
         self.initialMin = initialMin
         self.initialGoal = initialGoal
         self.initialAssist = initialAssist
+        self.initialYellowcard = initialYellowcard
+        self.initialRedcard = initialRedcard
         self.onSave = onSave
         _selectedPlayerId = State(initialValue: initialPlayerId ?? players.first?.id)
         _min = State(initialValue: initialMin)
         _goal = State(initialValue: initialGoal)
         _assist = State(initialValue: initialAssist)
+        _yellowcard = State(initialValue: initialYellowcard)
+        _redcard = State(initialValue: initialRedcard)
     }
 
     var body: some View {
@@ -45,7 +54,7 @@ struct RecordFormView: View {
                     Spacer()
                     Button {
                         if let pid = selectedPlayerId {
-                            onSave(pid, min, goal, assist)
+                            onSave(pid, min, goal, assist, yellowcard, redcard)
                             dismiss()
                         }
                     } label: {
@@ -93,6 +102,12 @@ struct RecordFormView: View {
                             .foregroundColor(t.text)
                             .listRowBackground(t.bgElev)
                         Stepper("어시스트: \(assist)", value: $assist, in: 0...20)
+                            .foregroundColor(t.text)
+                            .listRowBackground(t.bgElev)
+                        Stepper("옐로카드: \(yellowcard)", value: $yellowcard, in: 0...2)
+                            .foregroundColor(t.text)
+                            .listRowBackground(t.bgElev)
+                        Stepper("레드카드: \(redcard)", value: $redcard, in: 0...1)
                             .foregroundColor(t.text)
                             .listRowBackground(t.bgElev)
                     }

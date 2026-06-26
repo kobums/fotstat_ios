@@ -121,8 +121,8 @@ struct RecordView: View {
                                     isActive: isActive,
                                     maxMinutes: vm.quarter.duration,
                                     onTap: { activePid = isActive ? nil : player.id },
-                                    onUpdate: { min, goal, assist in
-                                        vm.updateDraft(playerId: player.id, min: min, goal: goal, assist: assist)
+                                    onUpdate: { min, goal, assist, yellow, red in
+                                        vm.updateDraft(playerId: player.id, min: min, goal: goal, assist: assist, yellowcard: yellow, redcard: red)
                                     }
                                 )
                             }
@@ -156,16 +156,18 @@ struct RecordPlayerCard: View {
     let isActive: Bool
     let maxMinutes: Int
     let onTap: () -> Void
-    let onUpdate: (Int, Int, Int) -> Void
+    let onUpdate: (Int, Int, Int, Int, Int) -> Void
 
     @State private var mins: Int
     @State private var goals: Int
     @State private var assists: Int
+    @State private var yellows: Int
+    @State private var reds: Int
     @State private var minsText: String
     @FocusState private var minsFocused: Bool
     @Environment(\.fsTheme) var t
 
-    init(player: Player, draft: RecordViewModel.Draft, isActive: Bool, maxMinutes: Int, onTap: @escaping () -> Void, onUpdate: @escaping (Int, Int, Int) -> Void) {
+    init(player: Player, draft: RecordViewModel.Draft, isActive: Bool, maxMinutes: Int, onTap: @escaping () -> Void, onUpdate: @escaping (Int, Int, Int, Int, Int) -> Void) {
         self.player = player
         self.draft = draft
         self.isActive = isActive
@@ -176,6 +178,8 @@ struct RecordPlayerCard: View {
         _minsText = State(initialValue: draft.min == 0 ? "" : "\(draft.min)")
         _goals = State(initialValue: draft.goal)
         _assists = State(initialValue: draft.assist)
+        _yellows = State(initialValue: draft.yellowcard)
+        _reds = State(initialValue: draft.redcard)
     }
 
     // 외부(서버 재조회 등)에서 draft가 바뀌면 로컬 입력 상태 동기화.
@@ -187,6 +191,8 @@ struct RecordPlayerCard: View {
         }
         if d.goal != goals { goals = d.goal }
         if d.assist != assists { assists = d.assist }
+        if d.yellowcard != yellows { yellows = d.yellowcard }
+        if d.redcard != reds { reds = d.redcard }
     }
 
     var body: some View {
@@ -234,9 +240,23 @@ struct RecordPlayerCard: View {
             FSStepper(value: assists, accent: true, small: true, onDecrement: { assists = max(0, assists - 1); save() }, onIncrement: { assists = min(9, assists + 1); save() })
         }
 
-            // 풀타임 빠른 채우기 — 활성(탭) 시에만 노출
+            // 카드·풀타임 — 활성(탭) 시에만 노출
             if isActive {
                 Rectangle().fill(t.line).frame(height: 0.5).padding(.vertical, 8)
+
+                // 옐로/레드 카드
+                HStack(spacing: 10) {
+                    cardRow(label: "옐로", color: Color(red: 0.96, green: 0.78, blue: 0.10),
+                            value: yellows,
+                            onDecrement: { yellows = max(0, yellows - 1); save() },
+                            onIncrement: { yellows = min(2, yellows + 1); save() })
+                    cardRow(label: "레드", color: Color(red: 0.88, green: 0.15, blue: 0.18),
+                            value: reds,
+                            onDecrement: { reds = max(0, reds - 1); save() },
+                            onIncrement: { reds = min(1, reds + 1); save() })
+                }
+                .padding(.bottom, 8)
+
                 Button {
                     minsText = "\(maxMinutes)"   // onChange가 0~120 클램프·mins 갱신·save 처리
                 } label: {
@@ -269,8 +289,24 @@ struct RecordPlayerCard: View {
         .onChange(of: draft) { _, newDraft in syncFromDraft(newDraft) }
     }
 
+    // 옐로/레드 카드 한 줄: 색 칩 + 라벨 + 스테퍼
+    private func cardRow(label: String, color: Color, value: Int,
+                         onDecrement: @escaping () -> Void, onIncrement: @escaping () -> Void) -> some View {
+        HStack(spacing: 6) {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(color)
+                .frame(width: 11, height: 15)
+            Text(label)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(t.textSec)
+            Spacer(minLength: 4)
+            FSStepper(value: value, accent: false, small: true, onDecrement: onDecrement, onIncrement: onIncrement)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
     // 값 변경 즉시 ViewModel에 전달 → 합계 즉시 갱신. 서버 저장 디바운스는 ViewModel이 담당
     private func save() {
-        onUpdate(mins, goals, assists)
+        onUpdate(mins, goals, assists, yellows, reds)
     }
 }
