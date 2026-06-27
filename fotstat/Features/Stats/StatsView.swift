@@ -174,8 +174,11 @@ struct StatRankRow: View {
         HStack(spacing: 10) {
             Text("\(rank)")
                 .font(.system(size: 14, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .lineLimit(1)
+                .fixedSize()
                 .foregroundColor(rank == 1 ? t.accent : t.textSec)
-                .frame(width: 16)
+                .frame(width: 24, alignment: .trailing)
 
             FSPlayerAvatar(number: player.number, size: 30)
 
