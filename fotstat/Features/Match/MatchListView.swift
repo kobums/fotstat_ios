@@ -3,8 +3,6 @@ import SwiftUI
 struct MatchListView: View {
     @StateObject private var vm: MatchViewModel
     @State private var showAddMatch = false
-    @State private var pendingDelete: Match?
-    @State private var openSwipeID: Int?
     @Environment(\.fsTheme) var t
 
     init(team: Team) {
@@ -89,25 +87,9 @@ struct MatchListView: View {
             }
             .environment(\.fsTheme, t)
         }
-        .confirmationDialog(
-            "경기 삭제",
-            isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
-            titleVisibility: .visible
-        ) {
-            Button("삭제", role: .destructive) {
-                if let match = pendingDelete {
-                    Task { await vm.deleteMatch(id: match.id) }
-                }
-                pendingDelete = nil
-                openSwipeID = nil  // 다이얼로그 종료 후 열린 패널 닫기
-            }
-            Button("취소", role: .cancel) {
-                pendingDelete = nil
-                openSwipeID = nil
-            }
-        } message: {
-            if let match = pendingDelete {
-                Text("'\(match.awayname)' 경기를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.")
+        .onReceive(NotificationCenter.default.publisher(for: .matchDeleted)) { note in
+            if let id = note.userInfo?["matchId"] as? Int {
+                vm.removeMatch(id: id)
             }
         }
         .alert(
@@ -125,14 +107,10 @@ struct MatchListView: View {
     private func matchCard(_ matches: [Match], isUpcoming: Bool) -> some View {
         VStack(spacing: 0) {
             ForEach(Array(matches.enumerated()), id: \.element.id) { i, match in
-                FSSwipeToDelete(id: match.id, openID: $openSwipeID) {
-                    NavigationLink(value: match) {
-                        MatchRow(match: match, teamName: vm.team.name, isUpcoming: isUpcoming)
-                    }
-                    .buttonStyle(.plain)
-                } onDelete: {
-                    pendingDelete = match
+                NavigationLink(value: match) {
+                    MatchRow(match: match, teamName: vm.team.name, isUpcoming: isUpcoming)
                 }
+                .buttonStyle(.plain)
                 if i < matches.count - 1 {
                     Divider().background(t.line)
                 }
