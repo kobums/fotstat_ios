@@ -204,18 +204,11 @@ final class MatchViewModel: ObservableObject {
         }
     }
 
-    func deleteMatch(id: Int) async {
-        do {
-            _ = try await APIClient.shared.request(
-                .deleteMatch(id: id),
-                responseType: CodeResponse.self
-            )
-            matches.removeAll { $0.id == id }
-            upcomingMatches.removeAll { $0.id == id }
-            pastMatches.removeAll { $0.id == id }
-            rebuildMonthSections()
-        } catch {
-            errorMessage = error.localizedDescription
-        }
+    // 상세 화면에서 삭제된 경기를 목록에서 로컬 제거 (API 호출은 QuarterViewModel.deleteMatch)
+    func removeMatch(id: Int) {
+        matches.removeAll { $0.id == id }
+        upcomingMatches.removeAll { $0.id == id }
+        pastMatches.removeAll { $0.id == id }
+        rebuildMonthSections()
     }
 }

@@ -140,6 +140,11 @@ struct TeamHomeView: View {
         }
         .background(t.bg.ignoresSafeArea())
         .task { await matchVM.fetchMatches() }
+        .onReceive(NotificationCenter.default.publisher(for: .matchDeleted)) { note in
+            if let id = note.userInfo?["matchId"] as? Int {
+                matchVM.removeMatch(id: id)
+            }
+        }
     }
 }
 

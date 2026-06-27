@@ -8,6 +8,7 @@ struct MatchDetailView: View {
     @Environment(\.dismiss) var dismiss
     @State private var showAddQuarter = false
     @State private var newQuarterDuration = 45
+    @State private var showDeleteConfirm = false
 
     init(match: Match, team: Team) {
         self.match = match
@@ -50,7 +51,12 @@ struct MatchDetailView: View {
                             .font(.system(size: 12, weight: .bold))
                             .foregroundColor(t.textSec)
                         Spacer()
-                        Color.clear.frame(width: 36, height: 36)
+                        FSGlassButton(action: { showDeleteConfirm = true }) {
+                            Image(systemName: "trash")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(t.neg)
+                        }
+                        .disabled(vm.isDeleting)
                     }
                     .padding(.horizontal, 12)
                     .padding(.top, 58)
@@ -199,6 +205,28 @@ struct MatchDetailView: View {
                 Task { await vm.addNextQuarter(duration: newQuarterDuration) }
             }
             .environment(\.fsTheme, t)
+        }
+        .confirmationDialog(
+            "경기 삭제",
+            isPresented: $showDeleteConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("삭제", role: .destructive) {
+                Task {
+                    if await vm.deleteMatch() { dismiss() }
+                }
+            }
+            Button("취소", role: .cancel) {}
+        } message: {
+            Text("'\(match.awayname)' 경기를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.")
+        }
+        .alert(
+            "오류",
+            isPresented: Binding(get: { vm.errorMessage != nil }, set: { if !$0 { vm.errorMessage = nil } })
+        ) {
+            Button("확인", role: .cancel) { vm.errorMessage = nil }
+        } message: {
+            Text(vm.errorMessage ?? "")
         }
     }
 }

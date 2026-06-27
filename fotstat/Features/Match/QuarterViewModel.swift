@@ -1,6 +1,11 @@
 import Foundation
 import Combine
 
+extension Notification.Name {
+    /// 경기 상세 화면에서 경기가 삭제되면 목록 화면이 로컬 반영하도록 알림
+    static let matchDeleted = Notification.Name("fotstat.matchDeleted")
+}
+
 struct QuarterSummary: Identifiable {
     let quarter: Quarter
     let homeGoals: Int
@@ -13,6 +18,7 @@ struct QuarterSummary: Identifiable {
 final class QuarterViewModel: ObservableObject {
     @Published var summaries: [QuarterSummary] = []
     @Published var isLoading = false
+    @Published var isDeleting = false
     @Published var errorMessage: String?
 
     let match: Match
@@ -88,6 +94,28 @@ final class QuarterViewModel: ObservableObject {
             // 실패 시 서버 값으로 복원
             await fetchQuarters()
             errorMessage = error.localizedDescription
+        }
+    }
+
+    /// 경기 삭제. 성공 시 목록 갱신용 알림을 보내고 true 반환.
+    func deleteMatch() async -> Bool {
+        guard !isDeleting else { return false }
+        isDeleting = true
+        defer { isDeleting = false }
+        do {
+            _ = try await APIClient.shared.request(
+                .deleteMatch(id: match.id),
+                responseType: CodeResponse.self
+            )
+            NotificationCenter.default.post(
+                name: .matchDeleted,
+                object: nil,
+                userInfo: ["matchId": match.id]
+            )
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
         }
     }
 
