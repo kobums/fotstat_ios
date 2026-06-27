@@ -18,6 +18,7 @@ struct QuarterSummary: Identifiable {
 final class QuarterViewModel: ObservableObject {
     @Published var summaries: [QuarterSummary] = []
     @Published var isLoading = false
+    @Published var isDeleting = false
     @Published var errorMessage: String?
 
     let match: Match
@@ -98,6 +99,9 @@ final class QuarterViewModel: ObservableObject {
 
     /// 경기 삭제. 성공 시 목록 갱신용 알림을 보내고 true 반환.
     func deleteMatch() async -> Bool {
+        guard !isDeleting else { return false }
+        isDeleting = true
+        defer { isDeleting = false }
         do {
             _ = try await APIClient.shared.request(
                 .deleteMatch(id: match.id),

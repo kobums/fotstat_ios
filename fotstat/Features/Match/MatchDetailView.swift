@@ -56,6 +56,7 @@ struct MatchDetailView: View {
                                 .font(.system(size: 14, weight: .semibold))
                                 .foregroundColor(t.neg)
                         }
+                        .disabled(vm.isDeleting)
                     }
                     .padding(.horizontal, 12)
                     .padding(.top, 58)

@@ -176,7 +176,7 @@ struct StatRankRow: View {
                 .font(.system(size: 14, weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .lineLimit(1)
-                .fixedSize()
+                .fixedSize(horizontal: true, vertical: false)
                 .foregroundColor(rank == 1 ? t.accent : t.textSec)
                 .frame(width: 24, alignment: .trailing)
 
