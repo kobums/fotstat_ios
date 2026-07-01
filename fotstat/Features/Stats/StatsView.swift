@@ -178,13 +178,13 @@ struct StatRankRow: View {
                 .lineLimit(1)
                 .fixedSize(horizontal: true, vertical: false)
                 .foregroundColor(rank == 1 ? t.accent : t.textSec)
-                .frame(width: 24, alignment: .trailing)
+                .frame(minWidth: 24, alignment: .trailing)
 
             FSPlayerAvatar(number: player.number, size: 30)
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
-                    Text(player.name).font(.system(size: 13, weight: .bold)).foregroundColor(t.text)
+                    Text(player.name).font(.system(size: 13, weight: .bold)).foregroundColor(t.text).lineLimit(1)
                     if let pos = player.position { FSPosChip(pos: pos) }
                 }
                 GeometryReader { geo in
@@ -201,12 +201,17 @@ struct StatRankRow: View {
 
             Text(valueLabel)
                 .font(.system(size: 18, weight: .black, design: .rounded))
+                .monospacedDigit()
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
                 .foregroundColor(rank == 1 ? t.accent : t.text)
 
             Text(subLabel)
                 .font(.system(size: 10))
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
                 .foregroundColor(t.textTer)
-                .frame(width: 36, alignment: .trailing)
+                .frame(minWidth: 36, alignment: .trailing)
         }
         .padding(.horizontal, 12).padding(.vertical, 10)
     }
