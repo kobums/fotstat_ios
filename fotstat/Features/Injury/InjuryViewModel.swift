@@ -90,12 +90,15 @@ final class InjuryViewModel: ObservableObject {
         }
     }
 
-    func delete(id: Int) async {
+    /// 성공 여부 반환 — 실패 시 폼을 닫지 않고 에러를 노출해야 한다.
+    func delete(id: Int) async -> Bool {
         do {
             _ = try await APIClient.shared.request(.deleteInjury(id: id), responseType: CodeResponse.self)
             await fetch()
+            return true
         } catch {
             errorMessage = error.localizedDescription
+            return false
         }
     }
 }

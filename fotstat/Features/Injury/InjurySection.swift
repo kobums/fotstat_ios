@@ -69,6 +69,18 @@ struct InjurySection: View {
             InjuryFormView(vm: vm, draft: draft)
                 .environment(\.fsTheme, t)
         }
+        // 시트가 열려 있을 땐 폼 쪽 alert가 처리하므로 여기서는 닫힌 상태의 조회 실패만 노출
+        .alert(
+            "불러오기 실패",
+            isPresented: Binding(
+                get: { vm.errorMessage != nil && editing == nil },
+                set: { if !$0 { vm.errorMessage = nil } }
+            )
+        ) {
+            Button("확인", role: .cancel) { vm.errorMessage = nil }
+        } message: {
+            Text(vm.errorMessage ?? "")
+        }
     }
 
     private static func todayString() -> String {

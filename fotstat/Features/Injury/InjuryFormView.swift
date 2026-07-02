@@ -51,7 +51,7 @@ struct InjuryFormView: View {
                     DatePicker("발생일", selection: $startDate, in: ...Date(), displayedComponents: .date)
                     Toggle("복귀 완료", isOn: $hasReturned)
                     if hasReturned {
-                        DatePicker("복귀일", selection: $returnDate, in: startDate..., displayedComponents: .date)
+                        DatePicker("복귀일", selection: $returnDate, in: startDate...Date(), displayedComponents: .date)
                     }
                 }
 
@@ -65,9 +65,9 @@ struct InjuryFormView: View {
                         Button(role: .destructive) {
                             Task {
                                 isSaving = true
-                                await vm.delete(id: id)
+                                let ok = await vm.delete(id: id)
                                 isSaving = false
-                                dismiss()
+                                if ok { dismiss() }
                             }
                         } label: {
                             Text("부상 기록 삭제").frame(maxWidth: .infinity)
@@ -77,6 +77,14 @@ struct InjuryFormView: View {
             }
             .navigationTitle(editingId == nil ? "부상 등록" : "부상 수정")
             .navigationBarTitleDisplayMode(.inline)
+            .alert(
+                "처리 실패",
+                isPresented: Binding(get: { vm.errorMessage != nil }, set: { if !$0 { vm.errorMessage = nil } })
+            ) {
+                Button("확인", role: .cancel) { vm.errorMessage = nil }
+            } message: {
+                Text(vm.errorMessage ?? "")
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("취소") { dismiss() }
