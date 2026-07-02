@@ -85,6 +85,20 @@ struct Record: Decodable, Identifiable {
     let redcard: Int
 }
 
+// MARK: - Injury
+
+struct Injury: Decodable, Identifiable, Hashable {
+    let id: Int
+    let player: Int
+    let type: String?
+    let startdate: String?
+    let returndate: String?
+    let memo: String?
+
+    /// 복귀일이 비어 있으면 아직 부상 중(복귀 전).
+    var isActive: Bool { (returndate ?? "").isEmpty }
+}
+
 // MARK: - Stats (not yet implemented in backend)
 
 struct TeamStats: Decodable {
@@ -106,6 +120,7 @@ struct PlayerStats: Decodable, Identifiable, Hashable {
     let assist: Int
     let min: Int
     var games: Int = 0
+    var absentGames: Int = 0   // 부상으로 결장한 경기 수
 }
 
 struct MatchStats: Decodable {

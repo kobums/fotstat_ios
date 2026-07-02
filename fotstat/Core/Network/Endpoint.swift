@@ -209,6 +209,34 @@ extension Endpoint {
     }
 }
 
+// MARK: - Injury
+
+extension Endpoint {
+    /// 팀 전체 부상 이력. 복귀일(returndate)이 빈 값이면 현재 부상 중.
+    static func injuries(teamId: Int) -> Endpoint {
+        Endpoint(path: "/injury?team=\(teamId)", method: .GET)
+    }
+
+    static func createInjury(playerId: Int, type: String, startdate: String, returndate: String, memo: String) -> Endpoint {
+        Endpoint(path: "/injury", method: .POST, body: [
+            "player": playerId, "type": type, "startdate": startdate,
+            "returndate": returndate, "memo": memo
+        ])
+    }
+
+    static func updateInjury(id: Int, playerId: Int, type: String, startdate: String, returndate: String, memo: String) -> Endpoint {
+        // 항상 모든 필드를 보내 빈 값(복귀일 지움 등)이 백엔드 NULL로 반영되게 한다.
+        Endpoint(path: "/injury", method: .PUT, body: [
+            "id": id, "player": playerId, "type": type, "startdate": startdate,
+            "returndate": returndate, "memo": memo
+        ])
+    }
+
+    static func deleteInjury(id: Int) -> Endpoint {
+        Endpoint(path: "/injury", method: .DELETE, body: ["id": id])
+    }
+}
+
 // MARK: - Stats (not yet implemented in backend)
 
 extension Endpoint {

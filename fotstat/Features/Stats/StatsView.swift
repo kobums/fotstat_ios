@@ -54,7 +54,7 @@ struct TeamStatsContentView: View {
                             RankingSection(title: "출전 시간 순위", players: stats.players,
                                 value: { $0.min },
                                 valueLabel: { "\($0.min)'" },
-                                subLabel: { "\($0.goal)G \($0.assist)A" },
+                                subLabel: { "\($0.games)경기 · \($0.goal)G \($0.assist)A" },
                                 emptyHint: playingTimeEmptyHint)
                         }
                     }
@@ -145,7 +145,7 @@ struct StatsView: View {
                             RankingSection(title: "출전 시간 순위", players: stats.players,
                                 value: { $0.min },
                                 valueLabel: { "\($0.min)'" },
-                                subLabel: { "\($0.goal)G \($0.assist)A" },
+                                subLabel: { "\($0.games)경기 · \($0.goal)G \($0.assist)A" },
                                 emptyHint: playingTimeEmptyHint)
                         } else if vm.isLoadingStats {
                             ProgressView().padding(.top, 40)

@@ -41,12 +41,14 @@ struct TeamContextView: View {
 struct TeamHomeView: View {
     let team: Team
     @StateObject private var matchVM: MatchViewModel
+    @StateObject private var injuryVM: InjuryViewModel
     @Environment(\.fsTheme) var t
     @State private var selectedDate: Date? = nil
 
     init(team: Team) {
         self.team = team
         _matchVM = StateObject(wrappedValue: MatchViewModel(team: team))
+        _injuryVM = StateObject(wrappedValue: InjuryViewModel(team: team))
     }
 
     private var upcomingMatch: Match? {
@@ -116,6 +118,9 @@ struct TeamHomeView: View {
                         .padding(.vertical, 16)
                 }
 
+                // 부상자 명단
+                InjurySection(vm: injuryVM, matches: matchVM.matches)
+
                 // 최근 완료 경기
                 if !recentFinished.isEmpty {
                     FSSectionHeader(title: "최근 경기")
@@ -140,6 +145,7 @@ struct TeamHomeView: View {
         }
         .background(t.bg.ignoresSafeArea())
         .task { await matchVM.fetchMatches() }
+        .task { await injuryVM.fetch() }
         .onReceive(NotificationCenter.default.publisher(for: .matchDeleted)) { note in
             if let id = note.userInfo?["matchId"] as? Int {
                 matchVM.removeMatch(id: id)
