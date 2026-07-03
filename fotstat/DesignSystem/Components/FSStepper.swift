@@ -5,6 +5,7 @@ struct FSStepper: View {
     var suffix: String = ""
     var accent: Bool = false
     var small: Bool = false
+    var canIncrement: Bool = true   // 상한 도달 시 +버튼 비활성(흐리게) 표시
     let onDecrement: () -> Void
     let onIncrement: () -> Void
     @Environment(\.fsTheme) var t
@@ -43,6 +44,8 @@ struct FSStepper: View {
                     .cornerRadius(small ? 8 : 10)
             }
             .buttonStyle(.plain)
+            .disabled(!canIncrement)
+            .opacity(canIncrement ? 1 : 0.35)
         }
         .frame(width: totalWidth)
     }

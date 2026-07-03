@@ -15,18 +15,25 @@ final class RecordViewModel: ObservableObject {
     @Published var records: [Record] = []
     @Published var players: [Player] = []
     @Published var drafts: [Int: Draft] = [:]   // playerId -> 입력값
+    @Published var injuredPlayerIds: Set<Int> = []  // 이 경기일에 부상 중인 선수 — 입력 차단
     @Published var isLoading = false
     @Published var errorMessage: String?
 
     let quarter: Quarter
     let team: Team
+    let match: Match
     private var savingPlayerIds: Set<Int> = []        // 저장 루프 중복 진입 방지
     private var createdPlayerIds: Set<Int> = []       // 이미 create 한 선수 — 중복 생성 방지
     private var saveTasks: [Int: Task<Void, Never>] = [:]
 
-    init(quarter: Quarter, team: Team) {
+    init(quarter: Quarter, team: Team, match: Match) {
         self.quarter = quarter
         self.team = team
+        self.match = match
+    }
+
+    func isInjured(_ playerId: Int) -> Bool {
+        injuredPlayerIds.contains(playerId)
     }
 
     // 화면 표시값은 모두 drafts(사용자 입력)에서 계산 → 입력과 항상 일치
@@ -51,13 +58,35 @@ final class RecordViewModel: ObservableObject {
                 .players(teamId: team.id),
                 responseType: ItemsResponse<Player>.self
             )
-            let (rResp, pResp) = try await (recordsReq, playersReq)
+            async let injuriesReq = APIClient.shared.request(
+                .injuries(teamId: team.id),
+                responseType: ItemsResponse<Injury>.self
+            )
+            let (rResp, pResp, iResp) = try await (recordsReq, playersReq, injuriesReq)
             records = rResp.items ?? []
             players = pResp.items ?? []
+            injuredPlayerIds = Self.injuredPlayers(injuries: iResp.items ?? [], on: match.matchdate)
             rebuildDrafts()
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    // 경기일이 부상 기간(startdate ~ returndate, returndate 비면 아직 부상 중)에 걸치는
+    // 선수 id 집합. 날짜는 "yyyy-MM-dd" 형태라 문자열 비교로 대소를 판단할 수 있다.
+    static func injuredPlayers(injuries: [Injury], on matchdate: String) -> Set<Int> {
+        let day = String(matchdate.prefix(10))
+        guard !day.isEmpty else { return [] }
+        var ids: Set<Int> = []
+        for injury in injuries {
+            let start = String((injury.startdate ?? "").prefix(10))
+            guard !start.isEmpty, start <= day else { continue }
+            let end = String((injury.returndate ?? "").prefix(10))
+            if end.isEmpty || day <= end {
+                ids.insert(injury.player)
+            }
+        }
+        return ids
     }
 
     // 서버 records를 drafts에 반영. playerId 기준이라 서버에 같은 선수 record가 중복돼도 마지막 것만 집계(방어)
@@ -69,15 +98,67 @@ final class RecordViewModel: ObservableObject {
         drafts = next
     }
 
+    // 어시스트 불변식 — ① 자기 골에는 어시스트 불가(개인 assist ≤ 남의 골 합)
+    //                  ② 팀 assist 합 ≤ 팀 goal 합
+    // 이 선수가 가질 수 있는 최대 어시스트. UI(+버튼 비활성)와 updateDraft(값 클램프) 양쪽에서 사용
+    func assistCap(for playerId: Int) -> Int {
+        let d = draft(for: playerId)
+        let othersGoals = totalGoals - d.goal
+        let othersAssists = totalAssists - d.assist
+        return Swift.max(0, Swift.min(othersGoals, totalGoals - othersAssists))
+    }
+
     // 카드 값이 바뀔 때마다 즉시 호출 → draft 갱신(합계 즉시 반영) 후 네트워크 저장은 디바운스
     func updateDraft(playerId: Int, min: Int, goal: Int, assist: Int, yellowcard: Int, redcard: Int) {
-        drafts[playerId] = Draft(min: min, goal: goal, assist: assist, yellowcard: yellowcard, redcard: redcard)
+        // 부상 중인 선수는 입력을 저장하지 않는다(백엔드도 거부하지만 UI 차원에서 선차단)
+        guard !injuredPlayerIds.contains(playerId) else { return }
+        // 어시스트 불변식 검증 — UI 캡과 별개로 값 자체를 클램프(이중 방어)
+        let othersGoals = drafts.reduce(0) { $0 + ($1.key == playerId ? 0 : $1.value.goal) }
+        let othersAssists = drafts.reduce(0) { $0 + ($1.key == playerId ? 0 : $1.value.assist) }
+        let cap = Swift.max(0, Swift.min(othersGoals, othersGoals + goal - othersAssists))
+        let goalChanged = drafts[playerId]?.goal != goal
+        drafts[playerId] = Draft(min: min, goal: goal, assist: Swift.min(assist, cap), yellowcard: yellowcard, redcard: redcard)
+        if goalChanged { rebalanceAssists() }   // 골 감소로 다른 선수의 어시스트가 초과되면 함께 차감
+        scheduleSave(playerId)
+    }
+
+    // 골 변경으로 무너진 어시스트 불변식 복구. 초과분은 명단 아래쪽 선수부터 차감.
+    // 부상 선수는 입력이 차단된 상태라 기록을 건드리지 않는다(저장도 백엔드가 거부)
+    private func rebalanceAssists() {
+        let totalG = totalGoals
+        for (pid, d) in drafts where !injuredPlayerIds.contains(pid) {
+            let cap = Swift.max(0, totalG - d.goal)
+            if d.assist > cap {
+                drafts[pid]?.assist = cap
+                scheduleSave(pid)
+            }
+        }
+        var excess = totalAssists - totalG
+        guard excess > 0 else { return }
+        for player in players.reversed() where !injuredPlayerIds.contains(player.id) {
+            if excess <= 0 { break }
+            guard var d = drafts[player.id], d.assist > 0 else { continue }
+            let cut = Swift.min(d.assist, excess)
+            d.assist -= cut
+            drafts[player.id] = d
+            excess -= cut
+            scheduleSave(player.id)
+        }
+    }
+
+    private func scheduleSave(_ playerId: Int) {
         saveTasks[playerId]?.cancel()
         saveTasks[playerId] = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 600_000_000) // 0.6초 디바운스
             guard !Task.isCancelled else { return }
             await self?.persist(playerId: playerId)
         }
+    }
+
+    // Task 취소(새 입력이 이전 저장을 대체)는 실패가 아니다 — 최신값은 새 Task가 저장하므로 알리지 않음
+    private static func isCancellation(_ error: Error) -> Bool {
+        if case APIError.unknown(let underlying) = error { return isCancellation(underlying) }
+        return error is CancellationError || (error as? URLError)?.code == .cancelled
     }
 
     // draft가 서버에 반영될 때까지 저장. 선수당 1개 루프만 돌려 중복 생성·저장 유실 방지
@@ -101,7 +182,7 @@ final class RecordViewModel: ObservableObject {
                             responseType: CodeResponse.self
                         )
                     } catch {
-                        errorMessage = error.localizedDescription
+                        if !Self.isCancellation(error) { errorMessage = error.localizedDescription }
                         return
                     }
                     createdPlayerIds.insert(playerId)
@@ -121,7 +202,7 @@ final class RecordViewModel: ObservableObject {
                     responseType: CodeResponse.self
                 )
             } catch {
-                errorMessage = error.localizedDescription
+                if !Self.isCancellation(error) { errorMessage = error.localizedDescription }
                 return
             }
             // 저장 도중 draft가 또 바뀌었으면 최신값으로 한 번 더 저장
@@ -139,7 +220,8 @@ final class RecordViewModel: ObservableObject {
             records = resp.items ?? []
             return true
         } catch {
-            errorMessage = error.localizedDescription   // 무음 실패 방지 — 저장 중단을 사용자에게 안내
+            // 취소가 아닌 실패만 안내 — 무음 실패 방지
+            if !Self.isCancellation(error) { errorMessage = error.localizedDescription }
             return false
         }
     }

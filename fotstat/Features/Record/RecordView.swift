@@ -10,7 +10,7 @@ struct RecordView: View {
 
     init(quarter: Quarter, team: Team, match: Match) {
         self.match = match
-        _vm = StateObject(wrappedValue: RecordViewModel(quarter: quarter, team: team))
+        _vm = StateObject(wrappedValue: RecordViewModel(quarter: quarter, team: team, match: match))
     }
 
     private var quarterLabel: String {
@@ -113,14 +113,20 @@ struct RecordView: View {
                     } else {
                         VStack(spacing: 6) {
                             ForEach(vm.players) { player in
-                                let isActive = activePid == player.id
+                                let injured = vm.isInjured(player.id)
+                                let isActive = activePid == player.id && !injured
 
                                 RecordPlayerCard(
                                     player: player,
                                     draft: vm.draft(for: player.id),
                                     isActive: isActive,
+                                    isInjured: injured,
                                     maxMinutes: vm.quarter.duration,
-                                    onTap: { activePid = isActive ? nil : player.id },
+                                    assistCap: vm.assistCap(for: player.id),
+                                    onTap: {
+                                        guard !injured else { return }
+                                        activePid = isActive ? nil : player.id
+                                    },
                                     onUpdate: { min, goal, assist, yellow, red in
                                         vm.updateDraft(playerId: player.id, min: min, goal: goal, assist: assist, yellowcard: yellow, redcard: red)
                                     }
@@ -154,7 +160,9 @@ struct RecordPlayerCard: View {
     let player: Player
     let draft: RecordViewModel.Draft
     let isActive: Bool
+    let isInjured: Bool
     let maxMinutes: Int
+    let assistCap: Int   // 이 선수가 가질 수 있는 최대 어시스트(자기 골 어시 불가 + 팀 골 합 초과 불가)
     let onTap: () -> Void
     let onUpdate: (Int, Int, Int, Int, Int) -> Void
 
@@ -167,11 +175,13 @@ struct RecordPlayerCard: View {
     @FocusState private var minsFocused: Bool
     @Environment(\.fsTheme) var t
 
-    init(player: Player, draft: RecordViewModel.Draft, isActive: Bool, maxMinutes: Int, onTap: @escaping () -> Void, onUpdate: @escaping (Int, Int, Int, Int, Int) -> Void) {
+    init(player: Player, draft: RecordViewModel.Draft, isActive: Bool, isInjured: Bool = false, maxMinutes: Int, assistCap: Int, onTap: @escaping () -> Void, onUpdate: @escaping (Int, Int, Int, Int, Int) -> Void) {
         self.player = player
         self.draft = draft
         self.isActive = isActive
+        self.isInjured = isInjured
         self.maxMinutes = maxMinutes
+        self.assistCap = assistCap
         self.onTap = onTap
         self.onUpdate = onUpdate
         _mins = State(initialValue: draft.min)
@@ -203,6 +213,14 @@ struct RecordPlayerCard: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text(player.name).font(.system(size: 14, weight: .bold)).foregroundColor(t.text)
+                    if isInjured {
+                        Text("부상")
+                            .font(.system(size: 10, weight: .black))
+                            .foregroundColor(t.neg)
+                            .padding(.horizontal, 5).padding(.vertical, 2)
+                            .background(t.neg.opacity(0.13))
+                            .cornerRadius(4)
+                    }
                 }
                 if let pos = player.pos {
                     FSPosChip(pos: pos)
@@ -237,7 +255,7 @@ struct RecordPlayerCard: View {
             .cornerRadius(8)
             .overlay(RoundedRectangle(cornerRadius: 8).stroke(minsFocused ? t.accent : Color.clear, lineWidth: 1))
             FSStepper(value: goals, accent: true, small: true, onDecrement: { goals = max(0, goals - 1); save() }, onIncrement: { goals = min(9, goals + 1); save() })
-            FSStepper(value: assists, accent: true, small: true, onDecrement: { assists = max(0, assists - 1); save() }, onIncrement: { assists = min(9, assists + 1); save() })
+            FSStepper(value: assists, accent: true, small: true, canIncrement: assists < min(9, assistCap), onDecrement: { assists = max(0, assists - 1); save() }, onIncrement: { assists = min(9, assistCap, assists + 1); save() })
         }
 
             // 카드·풀타임 — 활성(탭) 시에만 노출
@@ -285,7 +303,8 @@ struct RecordPlayerCard: View {
         .shadow(color: isActive ? t.accent.opacity(0.15) : .clear, radius: 6, x: 0, y: 2)
         .contentShape(Rectangle())
         .onTapGesture { onTap() }
-        .opacity(mins == 0 && !isActive ? 0.65 : 1)
+        .disabled(isInjured)   // 부상 선수는 입력(탭/스테퍼/시간) 전부 비활성
+        .opacity(isInjured ? 0.5 : (mins == 0 && !isActive ? 0.65 : 1))
         .onChange(of: draft) { _, newDraft in syncFromDraft(newDraft) }
     }
 

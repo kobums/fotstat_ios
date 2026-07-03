@@ -53,6 +53,9 @@ struct PlayerStatDetailView: View {
                 miniTile("도움", value: player.assist)
                 miniTile("출전 분", value: player.min, suffix: "'")
                 miniTile("경기", value: player.games)
+                if player.absentGames > 0 {
+                    miniTile("결장", value: player.absentGames)
+                }
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 20)

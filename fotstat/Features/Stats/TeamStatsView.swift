@@ -1,6 +1,14 @@
 import Foundation
 import Combine
 
+// 결장 경기 계산에서 오늘 날짜를 "yyyy-MM-dd" 로 만들 때 재사용.
+private let injuryDayFormatter: DateFormatter = {
+    let f = DateFormatter()
+    f.dateFormat = "yyyy-MM-dd"
+    f.locale = Locale(identifier: "en_US_POSIX")
+    return f
+}()
+
 // TeamStatsViewModel – shared by TeamStatsContentView (StatsView.swift)
 
 @MainActor
@@ -33,7 +41,12 @@ func loadStats(teamId: Int, from startDate: Date? = nil, to endDate: Date? = nil
         .matches(teamId: teamId),
         responseType: ItemsResponse<Match>.self
     )
+    async let injuriesReq = APIClient.shared.request(
+        .injuries(teamId: teamId),
+        responseType: ItemsResponse<Injury>.self
+    )
     guard let (playersResp, matchesResp) = try? await (playersReq, matchesReq) else { return nil }
+    let injuries = (try? await injuriesReq)?.items ?? []
 
     let players = playersResp.items ?? []
     var finished = (matchesResp.items ?? []).filter { ($0.parsedDate ?? .distantFuture) <= Date() }
@@ -103,11 +116,39 @@ func loadStats(teamId: Int, from startDate: Date? = nil, to endDate: Date? = nil
         else { losses += 1 }
     }
 
+    // 선수별 부상 기간 목록 (결장 경기 계산용). 날짜는 "yyyy-MM-dd" 문자열 비교.
+    let todayStr = injuryDayFormatter.string(from: Date())
+    var injuryPeriods: [Int: [(start: String, end: String)]] = [:]
+    for injury in injuries {
+        let start = String((injury.startdate ?? "").prefix(10))
+        guard !start.isEmpty else { continue }
+        let end = injury.isActive ? todayStr : String((injury.returndate ?? "").prefix(10))
+        guard !end.isEmpty else { continue }
+        injuryPeriods[injury.player, default: []].append((start, end))
+    }
+    // 통계 기간(finished)에 걸친 결장 경기 수
+    func absentGames(for playerId: Int) -> Int {
+        guard let periods = injuryPeriods[playerId] else { return 0 }
+        return finished.filter { match in
+            let day = String(match.matchdate.prefix(10))
+            guard !day.isEmpty else { return false }
+            return periods.contains { $0.start <= day && day <= $0.end }
+        }.count
+    }
+
     let playerStatsList = players.compactMap { p -> PlayerStats? in
-        guard let s = agg[p.id], s.goal > 0 || s.assist > 0 || s.min > 0 else { return nil }
+        let absent = absentGames(for: p.id)
+        guard let s = agg[p.id], s.goal > 0 || s.assist > 0 || s.min > 0 else {
+            // 기록은 없지만 부상 결장이 있으면 통계에 노출(결장만 표기)
+            if absent > 0 {
+                return PlayerStats(id: p.id, name: p.name, number: p.number, position: p.pos,
+                                   goal: 0, assist: 0, min: 0, games: 0, absentGames: absent)
+            }
+            return nil
+        }
         let games = playerMatchIds[p.id]?.count ?? 0
         return PlayerStats(id: p.id, name: p.name, number: p.number, position: p.pos,
-                           goal: s.goal, assist: s.assist, min: s.min, games: games)
+                           goal: s.goal, assist: s.assist, min: s.min, games: games, absentGames: absent)
     }
 
     var result = TeamStats(

@@ -34,6 +34,10 @@ struct MatchDetailView: View {
         vm.summaries.reduce(0) { $0 + $1.awayGoals }
     }
 
+    private var totalMinutes: Int {
+        vm.summaries.reduce(0) { $0 + $1.quarter.duration }
+    }
+
     var body: some View {
         ZStack(alignment: .bottom) {
 
@@ -104,9 +108,10 @@ struct MatchDetailView: View {
                                         .lineLimit(1)
                                         .fixedSize(horizontal: true, vertical: false)
                                 }
-                                Text("FT")
+                                Text(totalMinutes > 0 ? "총 \(totalMinutes)분" : "FT")
                                     .font(.system(size: 10, weight: .bold))
                                     .kerning(0.5)
+                                    .monospacedDigit()
                                     .foregroundColor(t.textTer)
                             }
                         }
