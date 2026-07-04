@@ -255,6 +255,7 @@ platform :ios do
           merge_commit_filtering: "exclude_merges"
         )
       end
+    notes = sanitize_release_notes(notes)
     notes = "- 안정성 개선 및 버그 수정" if notes.nil? || notes.strip.empty?
     UI.message("체인지로그:\n#{notes}")
     notes
@@ -294,4 +295,26 @@ platform :ios do
   error do |lane, exception|
     UI.error("❌ #{lane} 실패: #{exception.message}")
   end
+end
+
+# 사용자에게 그대로 노출되는 릴리즈노트이므로 커밋 컨벤션 흔적을 지운다.
+#   "- feat(stats): 순위 개선 (#33)" → "- 순위 개선"
+# chore/ci/docs 류(사용자 무관 변경)는 항목 자체를 제외한다.
+# 접두사 제거는 알려진 컨벤션 타입에만 적용한다 — Ruby \w는 한글도 매칭해서
+# "수정: 크래시 해결" 같은 일반 문구까지 잘라낼 수 있기 때문.
+CONVENTION_TYPE_RE = /\A(feat|fix|perf|refactor|chore|ci|docs|test|style|build|revert)(\([^)]*\))?!?:\s*/i
+HIDDEN_TYPES = %w[chore ci docs test style build refactor revert].freeze
+
+def sanitize_release_notes(notes)
+  return notes if notes.nil?
+  notes.lines.filter_map { |line|
+    body = line.strip.sub(/\A-\s*/, "")
+    next if body.empty?
+    if (m = body.match(CONVENTION_TYPE_RE))
+      next if HIDDEN_TYPES.include?(m[1].downcase)
+      body = body.sub(CONVENTION_TYPE_RE, "")
+    end
+    body = body.sub(/\s*\(#\d+\)\s*\z/, "")
+    body.empty? ? nil : "- #{body}"
+  }.join("\n")
 end
