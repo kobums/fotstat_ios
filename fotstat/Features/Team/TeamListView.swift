@@ -6,6 +6,8 @@ struct HomeView: View {
     @StateObject private var vm = TeamViewModel()
     @State private var showAddTeam = false
     @State private var newTeamName = ""
+    @State private var teamToDelete: Team?
+    @State private var showSettings = false
     @Environment(\.fsTheme) var t
 
     var body: some View {
@@ -23,6 +25,14 @@ struct HomeView: View {
                                     .font(.system(size: 32, weight: .black))
                                     .foregroundColor(t.text)
                             }
+                            Spacer()
+                            Button(action: { showSettings = true }) {
+                                Image(systemName: "ellipsis")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(t.text)
+                                    .frame(width: 36, height: 36)
+                            }
+                            .glassEffect(.regular.interactive(), in: Circle())
                         }
                         .padding(.horizontal, 16)
                         .padding(.top, 60)
@@ -33,37 +43,23 @@ struct HomeView: View {
                         } else if vm.teams.isEmpty {
                             emptyView
                         } else {
-                            if let main = vm.teams.first {
-                                NavigationLink(value: main) {
-                                    MainTeamCard(team: main)
-                                }
-                                .buttonStyle(.plain)
-                                .padding(.horizontal, 16)
-                                .padding(.bottom, 14)
-                            }
-
-                            if vm.teams.count > 1 {
-                                HStack {
-                                    Text("다른 팀")
-                                        .font(.system(size: 13, weight: .bold))
-                                        .kerning(0.6)
-                                        .textCase(.uppercase)
-                                        .foregroundColor(t.textSec)
-                                    Spacer()
-                                }
-                                .padding(.horizontal, 16)
-                                .padding(.bottom, 8)
-
-                                VStack(spacing: 8) {
-                                    ForEach(vm.teams.dropFirst()) { team in
-                                        NavigationLink(value: team) {
-                                            OtherTeamRow(team: team)
+                            VStack(spacing: 8) {
+                                ForEach(vm.teams) { team in
+                                    NavigationLink(value: team) {
+                                        TeamRow(team: team)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .contextMenu {
+                                        Button(role: .destructive) {
+                                            teamToDelete = team
+                                        } label: {
+                                            Label("팀 삭제", systemImage: "trash")
                                         }
-                                        .buttonStyle(.plain)
+                                        .disabled(vm.deletingTeamIds.contains(team.id))
                                     }
                                 }
-                                .padding(.horizontal, 16)
                             }
+                            .padding(.horizontal, 16)
                         }
                     }
                     .padding(.bottom, 100)
@@ -96,6 +92,10 @@ struct HomeView: View {
             .toolbar(.hidden, for: .navigationBar)
         }
         .task { await vm.fetchTeams() }
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+                .environment(\.fsTheme, t)
+        }
         .alert("팀 추가", isPresented: $showAddTeam) {
             TextField("팀 이름", text: $newTeamName)
             Button("추가") {
@@ -103,6 +103,30 @@ struct HomeView: View {
                 Task { await vm.createTeam(name: newTeamName); newTeamName = "" }
             }
             Button("취소", role: .cancel) { newTeamName = "" }
+        }
+        .confirmationDialog(
+            "팀 삭제",
+            isPresented: Binding(
+                get: { teamToDelete != nil },
+                set: { if !$0 { teamToDelete = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: teamToDelete
+        ) { team in
+            Button("삭제", role: .destructive) {
+                Task { await vm.deleteTeam(id: team.id) }
+            }
+            Button("취소", role: .cancel) {}
+        } message: { team in
+            Text("'\(team.name)' 팀과 소속 선수·경기·기록·부상 내역이 모두 삭제됩니다. 이 작업은 되돌릴 수 없습니다.")
+        }
+        .alert(
+            "오류",
+            isPresented: Binding(get: { vm.errorMessage != nil }, set: { if !$0 { vm.errorMessage = nil } })
+        ) {
+            Button("확인", role: .cancel) { vm.errorMessage = nil }
+        } message: {
+            Text(vm.errorMessage ?? "")
         }
     }
 
@@ -117,44 +141,9 @@ struct HomeView: View {
     }
 }
 
-// MARK: - MainTeamCard
+// MARK: - TeamRow
 
-struct MainTeamCard: View {
-    let team: Team
-    @Environment(\.fsTheme) var t
-
-    var body: some View {
-        HStack(spacing: 14) {
-            FSCrest(name: team.name, size: 54, radius: 12)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(team.name)
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(t.text)
-                Text("탭하여 팀 관리")
-                    .font(.system(size: 12))
-                    .foregroundColor(t.textSec)
-            }
-            Spacer()
-            Text("내 팀")
-                .font(.system(size: 11, weight: .black))
-                .kerning(0.3)
-                .foregroundColor(t.accent)
-                .padding(.horizontal, 8).padding(.vertical, 3)
-                .background(t.accentSoft).cornerRadius(6)
-            Image(systemName: "chevron.right")
-                .font(.system(size: 13))
-                .foregroundColor(t.textTer)
-        }
-        .padding(16)
-        .background(t.bgElev)
-        .cornerRadius(18)
-        .overlay(RoundedRectangle(cornerRadius: 18).stroke(t.line, lineWidth: 0.5))
-    }
-}
-
-// MARK: - OtherTeamRow
-
-struct OtherTeamRow: View {
+struct TeamRow: View {
     let team: Team
     @Environment(\.fsTheme) var t
 
