@@ -14,6 +14,8 @@ private let injuryDayFormatter: DateFormatter = {
 @MainActor
 final class TeamStatsViewModel: ObservableObject {
     @Published var stats: TeamStats?
+    /// 직전 동일 길이 기간의 통계 — "이전 기간 대비" 비교 타일용. 기간 미지정이면 nil.
+    @Published var prevStats: TeamStats?
     @Published var isLoading = false
     @Published var startDate: Date? = Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: Date()))
     @Published var endDate: Date? = Date()
@@ -27,7 +29,27 @@ final class TeamStatsViewModel: ObservableObject {
     func fetch() async {
         isLoading = true
         defer { isLoading = false }
-        stats = await loadStats(teamId: team.id, from: startDate, to: endDate)
+        if let s = startDate, let e = endDate, let prev = Self.previousRange(start: s, end: e) {
+            // 현재 기간도 이전 기간과 같은 일 단위 경계로 맞춘다 (시각이 남은 startDate로 인한 빈틈 방지)
+            async let current = loadStats(teamId: team.id, from: Calendar.current.startOfDay(for: s), to: e)
+            async let previous = loadStats(teamId: team.id, from: prev.start, to: prev.end)
+            stats = await current
+            prevStats = await previous
+        } else {
+            stats = await loadStats(teamId: team.id, from: startDate, to: endDate)
+            prevStats = nil
+        }
+    }
+
+    /// 현재 기간과 같은 길이로 바로 앞에 붙는 기간 (웹 TeamStatsPage.prevRange 와 동일 로직).
+    static func previousRange(start: Date, end: Date) -> (start: Date, end: Date)? {
+        let cal = Calendar.current
+        let s = cal.startOfDay(for: start)
+        let e = cal.startOfDay(for: end)
+        guard let days = cal.dateComponents([.day], from: s, to: e).day, days >= 0,
+              let prevEnd = cal.date(byAdding: .day, value: -1, to: s),
+              let prevStart = cal.date(byAdding: .day, value: -days, to: prevEnd) else { return nil }
+        return (prevStart, prevEnd)
     }
 }
 
@@ -106,11 +128,12 @@ func loadStats(teamId: Int, from startDate: Date? = nil, to endDate: Date? = nil
         }
     }
 
-    // W/D/L 계산
-    var wins = 0, draws = 0, losses = 0
+    // W/D/L·실점 계산
+    var wins = 0, draws = 0, losses = 0, conceded = 0
     for match in finished {
         let home = matchHomeGoals[match.id] ?? 0
         let away = allQuarters.filter { $0.match == match.id }.reduce(0) { $0 + $1.awaygoals }
+        conceded += away
         if home > away { wins += 1 }
         else if home == away { draws += 1 }
         else { losses += 1 }
@@ -158,5 +181,6 @@ func loadStats(teamId: Int, from startDate: Date? = nil, to endDate: Date? = nil
         players: playerStatsList
     )
     result.wins = wins; result.draws = draws; result.losses = losses
+    result.totalConceded = conceded
     return result
 }
