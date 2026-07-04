@@ -9,6 +9,7 @@ struct MatchDetailView: View {
     @State private var showAddQuarter = false
     @State private var newQuarterDuration = 45
     @State private var showDeleteConfirm = false
+    @State private var quarterToDelete: QuarterSummary?
 
     init(match: Match, team: Team) {
         self.match = match
@@ -159,6 +160,14 @@ struct MatchDetailView: View {
                                     }
                                 }
                                 .buttonStyle(.plain)
+                                .contextMenu {
+                                    Button(role: .destructive) {
+                                        quarterToDelete = summary
+                                    } label: {
+                                        Label("쿼터 삭제", systemImage: "trash")
+                                    }
+                                    .disabled(vm.deletingQuarterIds.contains(summary.id))
+                                }
                             }
                         }
                         .background(t.bgElev)
@@ -224,6 +233,22 @@ struct MatchDetailView: View {
             Button("취소", role: .cancel) {}
         } message: {
             Text("'\(match.awayname)' 경기를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.")
+        }
+        .confirmationDialog(
+            "쿼터 삭제",
+            isPresented: Binding(
+                get: { quarterToDelete != nil },
+                set: { if !$0 { quarterToDelete = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: quarterToDelete
+        ) { summary in
+            Button("삭제", role: .destructive) {
+                Task { await vm.deleteQuarter(id: summary.quarter.id) }
+            }
+            Button("취소", role: .cancel) {}
+        } message: { summary in
+            Text("Q\(summary.quarter.number) 쿼터와 해당 쿼터의 선수 기록이 모두 삭제됩니다. 이 작업은 되돌릴 수 없습니다.")
         }
         .alert(
             "오류",

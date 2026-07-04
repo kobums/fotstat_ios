@@ -14,6 +14,7 @@ final class MatchViewModel: ObservableObject {
     @Published var matchResults: [Int: String] = [:]  // matchId -> "W"/"D"/"L"
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var deletingMatchIds: Set<Int> = []
 
     // 경기 리스트 화면용 — 예정 고정 + 지난 경기 페이지네이션
     @Published var upcomingMatches: [Match] = []
@@ -199,6 +200,27 @@ final class MatchViewModel: ObservableObject {
                 responseType: CodeResponse.self
             )
             await loadInitial()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    // 목록에서 직접 삭제 (길게 누르기). 성공 시 다른 화면 갱신용 알림도 전파
+    func deleteMatch(id: Int) async {
+        guard !deletingMatchIds.contains(id) else { return }
+        deletingMatchIds.insert(id)
+        defer { deletingMatchIds.remove(id) }
+        do {
+            _ = try await APIClient.shared.request(
+                .deleteMatch(id: id),
+                responseType: CodeResponse.self
+            )
+            removeMatch(id: id)
+            NotificationCenter.default.post(
+                name: .matchDeleted,
+                object: nil,
+                userInfo: ["matchId": id]
+            )
         } catch {
             errorMessage = error.localizedDescription
         }

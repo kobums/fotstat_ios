@@ -3,6 +3,7 @@ import SwiftUI
 struct MatchListView: View {
     @StateObject private var vm: MatchViewModel
     @State private var showAddMatch = false
+    @State private var matchToDelete: Match?
     @Environment(\.fsTheme) var t
 
     init(team: Team) {
@@ -92,6 +93,22 @@ struct MatchListView: View {
                 vm.removeMatch(id: id)
             }
         }
+        .confirmationDialog(
+            "경기 삭제",
+            isPresented: Binding(
+                get: { matchToDelete != nil },
+                set: { if !$0 { matchToDelete = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: matchToDelete
+        ) { match in
+            Button("삭제", role: .destructive) {
+                Task { await vm.deleteMatch(id: match.id) }
+            }
+            Button("취소", role: .cancel) {}
+        } message: { match in
+            Text("'\(match.awayname)' 경기와 모든 쿼터·기록이 삭제됩니다. 이 작업은 되돌릴 수 없습니다.")
+        }
         .alert(
             "오류",
             isPresented: Binding(get: { vm.errorMessage != nil }, set: { if !$0 { vm.errorMessage = nil } })
@@ -111,6 +128,14 @@ struct MatchListView: View {
                     MatchRow(match: match, teamName: vm.team.name, isUpcoming: isUpcoming)
                 }
                 .buttonStyle(.plain)
+                .contextMenu {
+                    Button(role: .destructive) {
+                        matchToDelete = match
+                    } label: {
+                        Label("경기 삭제", systemImage: "trash")
+                    }
+                    .disabled(vm.deletingMatchIds.contains(match.id))
+                }
                 if i < matches.count - 1 {
                     Divider().background(t.line)
                 }
