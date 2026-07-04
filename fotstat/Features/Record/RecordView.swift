@@ -37,14 +37,8 @@ struct RecordView: View {
                             .font(.system(size: 12, weight: .bold))
                             .foregroundColor(t.textSec)
                         Spacer()
-                        Button { dismiss() } label: {
-                            Text("완료")
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundColor(.white)
-                                .frame(width: 60, height: 32)
-                                .background(t.accent)
-                                .cornerRadius(16)
-                        }
+                        // 좌측 뒤로가기 버튼과 폭을 맞춰 타이틀 중앙 정렬 유지
+                        Color.clear.frame(width: 36, height: 36)
                     }
                     .padding(.horizontal, 12)
                     .padding(.top, 58)
@@ -143,6 +137,7 @@ struct RecordView: View {
         .background(t.bg.ignoresSafeArea())
         .toolbar(.hidden, for: .navigationBar)
         .task { await vm.fetch() }
+        .onDisappear { vm.flushPendingSaves() }
         .alert(
             "저장 실패",
             isPresented: Binding(get: { vm.errorMessage != nil }, set: { if !$0 { vm.errorMessage = nil } })

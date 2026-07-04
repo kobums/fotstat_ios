@@ -119,7 +119,7 @@ struct TeamHomeView: View {
                 }
 
                 // 부상자 명단
-                InjurySection(vm: injuryVM, matches: matchVM.matches)
+                InjurySection(vm: injuryVM, isReadOnly: true)
 
                 // 최근 완료 경기
                 if !recentFinished.isEmpty {
@@ -150,6 +150,13 @@ struct TeamHomeView: View {
             if let id = note.userInfo?["matchId"] as? Int {
                 matchVM.removeMatch(id: id)
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .playerDeleted)) { _ in
+            Task { await injuryVM.fetch() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .injuryChanged)) { _ in
+            // 선수단 탭에서 부상을 등록·수정하면 홈 섹션 즉시 갱신
+            Task { await injuryVM.fetch() }
         }
     }
 }

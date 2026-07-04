@@ -38,10 +38,16 @@ struct InjuryFormView: View {
         NavigationStack {
             Form {
                 Section("선수") {
-                    Picker("선수", selection: $playerId) {
-                        ForEach(vm.players) { player in
-                            Text(player.number.map { "\(player.name) (\($0))" } ?? player.name)
-                                .tag(player.id)
+                    if editingId == nil {
+                        Picker("선수", selection: $playerId) {
+                            ForEach(vm.players) { player in
+                                Text(playerLabel(player)).tag(player.id)
+                            }
+                        }
+                    } else {
+                        // 수정 시 선수는 변경 대상이 아니므로 표시만 한다
+                        LabeledContent("선수") {
+                            Text(vm.players.first { $0.id == playerId }.map(playerLabel) ?? vm.playerName(for: playerId))
                         }
                     }
                 }
@@ -95,6 +101,10 @@ struct InjuryFormView: View {
                 }
             }
         }
+    }
+
+    private func playerLabel(_ player: Player) -> String {
+        player.number.map { "\(player.name) (\($0))" } ?? player.name
     }
 
     private func save() {

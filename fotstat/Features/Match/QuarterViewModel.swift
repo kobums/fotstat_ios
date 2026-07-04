@@ -19,6 +19,7 @@ final class QuarterViewModel: ObservableObject {
     @Published var summaries: [QuarterSummary] = []
     @Published var isLoading = false
     @Published var isDeleting = false
+    @Published var deletingQuarterIds: Set<Int> = []
     @Published var errorMessage: String?
 
     let match: Match
@@ -120,6 +121,9 @@ final class QuarterViewModel: ObservableObject {
     }
 
     func deleteQuarter(id: Int) async {
+        guard !deletingQuarterIds.contains(id) else { return }
+        deletingQuarterIds.insert(id)
+        defer { deletingQuarterIds.remove(id) }
         do {
             _ = try await APIClient.shared.request(
                 .deleteQuarter(id: id),

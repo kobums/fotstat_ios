@@ -1,10 +1,16 @@
 import Foundation
 import Combine
 
+extension Notification.Name {
+    /// 부상 등록·수정·삭제 시 홈 부상 섹션·통계 등 다른 탭 화면이 재조회하도록 알림
+    static let injuryChanged = Notification.Name("fotstat.injuryChanged")
+}
+
 @MainActor
 final class InjuryViewModel: ObservableObject {
     @Published var injuries: [Injury] = []
     @Published var players: [Player] = []
+    @Published var matches: [Match] = []   // 결장 경기 수 계산용 팀 경기 목록
     @Published var isLoading = false
     @Published var errorMessage: String?
 
@@ -34,9 +40,17 @@ final class InjuryViewModel: ObservableObject {
                 .players(teamId: team.id),
                 responseType: ItemsResponse<Player>.self
             )
+            async let matchesReq = APIClient.shared.request(
+                .matches(teamId: team.id),
+                responseType: ItemsResponse<Match>.self
+            )
             let (iResp, pResp) = try await (injuriesReq, playersReq)
             injuries = iResp.items ?? []
             players = pResp.items ?? []
+            // matches는 결장 경기 수 표시에만 쓰므로 실패해도 부상 목록·등록 흐름을 막지 않는다
+            if let mResp = try? await matchesReq {
+                matches = mResp.items ?? []
+            }
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -83,6 +97,7 @@ final class InjuryViewModel: ObservableObject {
             }
             _ = try await APIClient.shared.request(endpoint, responseType: CodeResponse.self)
             await fetch()
+            NotificationCenter.default.post(name: .injuryChanged, object: nil)
             return true
         } catch {
             errorMessage = error.localizedDescription
@@ -95,6 +110,7 @@ final class InjuryViewModel: ObservableObject {
         do {
             _ = try await APIClient.shared.request(.deleteInjury(id: id), responseType: CodeResponse.self)
             await fetch()
+            NotificationCenter.default.post(name: .injuryChanged, object: nil)
             return true
         } catch {
             errorMessage = error.localizedDescription

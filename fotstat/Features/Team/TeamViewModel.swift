@@ -6,6 +6,7 @@ final class TeamViewModel: ObservableObject {
     @Published var teams: [Team] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var deletingTeamIds: Set<Int> = []
 
     func fetchTeams() async {
         guard let userId = AuthManager.shared.currentUser?.id else { return }
@@ -51,6 +52,9 @@ final class TeamViewModel: ObservableObject {
     }
 
     func deleteTeam(id: Int) async {
+        guard !deletingTeamIds.contains(id) else { return }
+        deletingTeamIds.insert(id)
+        defer { deletingTeamIds.remove(id) }
         do {
             _ = try await APIClient.shared.request(
                 .deleteTeam(id: id),
