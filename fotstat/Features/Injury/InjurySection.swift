@@ -10,6 +10,9 @@ struct InjurySection: View {
     @Environment(\.fsTheme) var t
 
     @State private var editing: InjuryDraft? = nil
+    @State private var returning: Injury? = nil
+    // 지난 부상은 이력이 쌓이면 선수 목록을 밀어내므로 기본 접힘
+    @State private var showPast = false
 
     var body: some View {
         let active = vm.activeInjuries
@@ -23,8 +26,7 @@ struct InjurySection: View {
                     Spacer()
                     if !isReadOnly {
                         Button {
-                            let firstPlayer = vm.players.first?.id ?? 0
-                            editing = .new(playerId: firstPlayer, today: Self.todayString())
+                            editing = .new(playerId: vm.defaultNewInjuryPlayerId, today: Self.todayString())
                         } label: {
                             Image(systemName: "plus")
                                 .font(.system(size: 13, weight: .bold))
@@ -56,12 +58,29 @@ struct InjurySection: View {
                             if isReadOnly {
                                 row
                             } else {
-                                Button {
-                                    editing = .from(injury)
-                                } label: {
-                                    row
+                                HStack(spacing: 0) {
+                                    Button {
+                                        editing = .from(injury)
+                                    } label: {
+                                        row
+                                    }
+                                    .buttonStyle(.plain)
+
+                                    // 원탭 복귀 처리 — 복귀일을 오늘로 종료
+                                    Button {
+                                        returning = injury
+                                    } label: {
+                                        Text("복귀")
+                                            .font(.system(size: 12, weight: .bold))
+                                            .foregroundColor(t.accent)
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 7)
+                                            .background(t.bgElev3)
+                                            .cornerRadius(8)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .padding(.trailing, 12)
                                 }
-                                .buttonStyle(.plain)
                             }
                             if i < active.count - 1 {
                                 Divider().background(t.line)
@@ -73,15 +92,36 @@ struct InjurySection: View {
                     .overlay(RoundedRectangle(cornerRadius: 12).stroke(t.line, lineWidth: 0.5))
                     .padding(.horizontal, 16)
                 }
+
+                // 지난 부상 이력 — 선수단 탭(편집 가능)에서만 노출. 홈 탭은 부상 중만 보여준다.
+                if !isReadOnly && !vm.pastInjuries.isEmpty {
+                    pastList
+                }
             }
+        }
+        .confirmationDialog(
+            "복귀 처리",
+            isPresented: Binding(
+                get: { returning != nil },
+                set: { if !$0 { returning = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: returning
+        ) { injury in
+            Button("복귀") {
+                Task { _ = await vm.endInjury(injury) }
+            }
+            Button("취소", role: .cancel) {}
+        } message: { injury in
+            Text("'\(vm.playerName(for: injury.player))' 선수의 복귀일을 오늘로 설정합니다. 날짜를 바꾸려면 항목을 눌러 수정하세요.")
         }
         .sheet(item: $editing) { draft in
             InjuryFormView(vm: vm, draft: draft)
                 .environment(\.fsTheme, t)
         }
-        // 시트가 열려 있을 땐 폼 쪽 alert가 처리하므로 여기서는 닫힌 상태의 조회 실패만 노출
+        // 시트가 열려 있을 땐 폼 쪽 alert가 처리하므로 여기서는 닫힌 상태의 실패(조회·복귀 처리)만 노출
         .alert(
-            "불러오기 실패",
+            "오류",
             isPresented: Binding(
                 get: { vm.errorMessage != nil && editing == nil },
                 set: { if !$0 { vm.errorMessage = nil } }
@@ -91,6 +131,70 @@ struct InjurySection: View {
         } message: {
             Text(vm.errorMessage ?? "")
         }
+    }
+
+    /// "지난 부상" 서브섹션 — 복귀가 끝난 이력을 최신순으로, 탭하면 수정.
+    /// 기본은 접힘 상태로 건수만 보여주고, 헤더 탭으로 펼친다.
+    private var pastList: some View {
+        let past = vm.pastInjuries
+        return VStack(spacing: 0) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { showPast.toggle() }
+            } label: {
+                HStack(spacing: 6) {
+                    Text("지난 부상")
+                        .font(.system(size: 13, weight: .bold))
+                        .kerning(0.6)
+                        .foregroundColor(t.textSec)
+                    Text("\(past.count)")
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .foregroundColor(t.textTer)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(t.textTer)
+                        .rotationEffect(.degrees(showPast ? 90 : 0))
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
+                .padding(.bottom, 8)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityValue(showPast ? "펼쳐짐" : "접힘")
+
+            if showPast {
+                pastRows(past)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+    }
+
+    private func pastRows(_ past: [Injury]) -> some View {
+        VStack(spacing: 0) {
+            ForEach(Array(past.enumerated()), id: \.element.id) { i, injury in
+                Button {
+                    editing = .from(injury)
+                } label: {
+                    InjuryRow(
+                        name: vm.playerName(for: injury.player),
+                        number: vm.playerNumber(for: injury.player),
+                        type: injury.type,
+                        startdate: String((injury.startdate ?? "").prefix(10)),
+                        absentGames: vm.absentGames(for: injury, matches: vm.matches),
+                        returndate: String((injury.returndate ?? "").prefix(10))
+                    )
+                }
+                .buttonStyle(.plain)
+                if i < past.count - 1 {
+                    Divider().background(t.line)
+                }
+            }
+        }
+        .background(t.bgElev)
+        .cornerRadius(12)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(t.line, lineWidth: 0.5))
+        .padding(.horizontal, 16)
     }
 
     private static func todayString() -> String {
@@ -111,7 +215,11 @@ private struct InjuryRow: View {
     let type: String?
     let startdate: String
     let absentGames: Int
+    /// 비어 있지 않으면 지난 부상(복귀 완료) 행 — "복귀" 배지와 기간(발생~복귀)을 표시
+    var returndate: String = ""
     @Environment(\.fsTheme) var t
+
+    private var isPast: Bool { !returndate.isEmpty }
 
     var body: some View {
         HStack(spacing: 10) {
@@ -120,11 +228,11 @@ private struct InjuryRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text(name).font(.system(size: 14, weight: .bold)).foregroundColor(t.text)
-                    Text("부상")
+                    Text(isPast ? "복귀" : "부상")
                         .font(.system(size: 10, weight: .black))
-                        .foregroundColor(t.neg)
+                        .foregroundColor(isPast ? t.pos : t.neg)
                         .padding(.horizontal, 5).padding(.vertical, 2)
-                        .background(t.neg.opacity(0.13))
+                        .background((isPast ? t.pos : t.neg).opacity(0.13))
                         .cornerRadius(4)
                 }
                 if let type, !type.isEmpty {
@@ -138,7 +246,7 @@ private struct InjuryRow: View {
                     .font(.system(size: 12, weight: .bold, design: .rounded))
                     .foregroundColor(t.text)
                 if !startdate.isEmpty {
-                    Text("\(startdate)~").font(.system(size: 10)).foregroundColor(t.textTer)
+                    Text("\(startdate)~\(returndate)").font(.system(size: 10)).foregroundColor(t.textTer)
                 }
             }
         }

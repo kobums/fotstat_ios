@@ -27,6 +27,25 @@ final class InjuryViewModel: ObservableObject {
             .sorted { ($0.startdate ?? "") > ($1.startdate ?? "") }
     }
 
+    /// 복귀가 끝난 지난 부상 이력, 발생일 최신순 (웹 InjuriesPage "지난 부상"과 동일 기준).
+    var pastInjuries: [Injury] {
+        injuries
+            .filter { !$0.isActive }
+            .sorted { ($0.startdate ?? "") > ($1.startdate ?? "") }
+    }
+
+    /// 현재 부상 중인 선수 id 집합 — 등록 폼에서 "부상 중" 표시용
+    var activeInjuredPlayerIds: Set<Int> {
+        Set(activeInjuries.map(\.player))
+    }
+
+    /// 신규 등록 폼의 기본 선수 — 실수 중복 등록을 줄이기 위해 부상 중이 아닌 첫 선수.
+    /// 전원 부상 중이면 첫 선수(의도적 복수 부상 등록은 허용).
+    var defaultNewInjuryPlayerId: Int {
+        let injured = activeInjuredPlayerIds
+        return players.first { !injured.contains($0.id) }?.id ?? players.first?.id ?? 0
+    }
+
     func fetch() async {
         isLoading = true
         defer { isLoading = false }
@@ -103,6 +122,14 @@ final class InjuryViewModel: ObservableObject {
             errorMessage = error.localizedDescription
             return false
         }
+    }
+
+    /// 복귀 처리 — 복귀일을 오늘로 종료 (웹 InjuriesPage.endInjury 와 동일).
+    /// 날짜를 바꾸려면 항목을 눌러 수정하면 된다.
+    func endInjury(_ injury: Injury) async -> Bool {
+        var draft = InjuryDraft.from(injury)
+        draft.returndate = Self.today()
+        return await save(draft)
     }
 
     /// 성공 여부 반환 — 실패 시 폼을 닫지 않고 에러를 노출해야 한다.

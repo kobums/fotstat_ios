@@ -30,17 +30,28 @@ struct TeamStatsContentView: View {
                     if vm.isLoading {
                         ProgressView().padding(.top, 40)
                     } else {
-                        // 시즌 요약 타일
-                        let matchCount = vm.stats?.matchCount ?? 0
-                        let winRate = matchCount > 0 ? Int(Double(vm.stats?.wins ?? 0) / Double(matchCount) * 100) : 0
-                        HStack(spacing: 8) {
-                            FSStatTile(label: "시즌 골", value: "\(vm.stats?.totalGoal ?? 0)", sub: "\(matchCount)경기", accent: true)
-                            FSStatTile(label: "도움", value: "\(vm.stats?.totalAssist ?? 0)", sub: "어시스트")
-                            FSStatTile(label: "승률", value: "\(winRate)%",
-                                       sub: "W\(vm.stats?.wins ?? 0) D\(vm.stats?.draws ?? 0) L\(vm.stats?.losses ?? 0)")
+                        // 시즌 요약 타일 + 경기당 평균
+                        StatsSummarySection(stats: vm.stats)
+                            .padding(.top, 10)
+
+                        // 이전 기간 대비 (직전 동일 길이 기간에 경기가 있을 때만)
+                        if let stats = vm.stats, let prev = vm.prevStats, prev.matchCount > 0 {
+                            FSSectionHeader(title: "이전 기간 대비")
+                            HStack(spacing: 8) {
+                                CompareTileView(label: "득점", value: stats.totalGoal,
+                                                delta: stats.totalGoal - prev.totalGoal)
+                                CompareTileView(label: "실점", value: stats.totalConceded,
+                                                delta: stats.totalConceded - prev.totalConceded,
+                                                goodWhenUp: false)
+                                CompareTileView(label: "도움", value: stats.totalAssist,
+                                                delta: stats.totalAssist - prev.totalAssist)
+                            }
+                            .padding(.horizontal, 16)
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.top, 10)
+
+                        if let stats = vm.stats, stats.players.count >= 2 {
+                            PlayerCompareSection(players: stats.players)
+                        }
 
                         if let stats = vm.stats, !stats.players.isEmpty {
                             RankingSection(title: "득점 순위", players: stats.players,
@@ -132,14 +143,7 @@ struct StatsView: View {
                         .padding(.bottom, 8)
 
                         if let stats = vm.teamStats {
-                            let winRate = stats.matchCount > 0 ? Int(Double(stats.wins) / Double(stats.matchCount) * 100) : 0
-                            HStack(spacing: 8) {
-                                FSStatTile(label: "시즌 골", value: "\(stats.totalGoal)", sub: "\(stats.matchCount)경기", accent: true)
-                                FSStatTile(label: "도움", value: "\(stats.totalAssist)", sub: "어시스트")
-                                FSStatTile(label: "승률", value: "\(winRate)%",
-                                           sub: "W\(stats.wins) D\(stats.draws) L\(stats.losses)")
-                            }
-                            .padding(.horizontal, 16)
+                            StatsSummarySection(stats: stats)
 
                             RankingSection(title: "득점 순위", players: stats.players,
                                 value: { $0.goal },
@@ -163,6 +167,193 @@ struct StatsView: View {
             }
         }
         .task { await vm.fetchTeams() }
+    }
+}
+
+// MARK: - StatsSummarySection (시즌 요약 + 실점·득실차 + 경기당 평균)
+
+private func fsSigned(_ n: Int) -> String { n > 0 ? "+\(n)" : "\(n)" }
+private func fsPerGame(_ total: Int, _ games: Int) -> String {
+    games > 0 ? String(format: "%.1f", Double(total) / Double(games)) : "0.0"
+}
+
+struct StatsSummarySection: View {
+    let stats: TeamStats?
+    @Environment(\.fsTheme) var t
+
+    var body: some View {
+        let matchCount = stats?.matchCount ?? 0
+        let wins = stats?.wins ?? 0
+        let goal = stats?.totalGoal ?? 0
+        let assist = stats?.totalAssist ?? 0
+        let conceded = stats?.totalConceded ?? 0
+        let diff = goal - conceded
+        let winRate = matchCount > 0 ? Int(Double(wins) / Double(matchCount) * 100) : 0
+
+        VStack(spacing: 0) {
+            VStack(spacing: 8) {
+                HStack(spacing: 8) {
+                    FSStatTile(label: "시즌 골", value: "\(goal)", sub: "\(matchCount)경기", accent: true)
+                    FSStatTile(label: "도움", value: "\(assist)", sub: "어시스트")
+                    FSStatTile(label: "승률", value: "\(winRate)%",
+                               sub: "W\(wins) D\(stats?.draws ?? 0) L\(stats?.losses ?? 0)")
+                }
+                HStack(spacing: 8) {
+                    FSStatTile(label: "실점", value: "\(conceded)", sub: "\(matchCount)경기")
+                    FSStatTile(label: "득실차", value: fsSigned(diff), sub: "득점-실점")
+                }
+            }
+            .padding(.horizontal, 16)
+
+            // 경기당 평균 (웹과 동일: 골·실점·도움·득실차)
+            if matchCount > 0 {
+                FSSectionHeader(title: "경기당 평균")
+                HStack(spacing: 8) {
+                    FSStatTile(label: "골", value: fsPerGame(goal, matchCount), sub: "경기당")
+                    FSStatTile(label: "실점", value: fsPerGame(conceded, matchCount), sub: "경기당")
+                    FSStatTile(label: "도움", value: fsPerGame(assist, matchCount), sub: "경기당")
+                    FSStatTile(label: "득실차", value: fsPerGame(diff, matchCount), sub: "경기당")
+                }
+                .padding(.horizontal, 16)
+            }
+        }
+    }
+}
+
+// MARK: - CompareTileView (이전 기간 대비)
+
+struct CompareTileView: View {
+    let label: String
+    let value: Int
+    /// 현재 - 이전
+    let delta: Int
+    /// 증가가 좋은 방향인지 — 실점은 false
+    var goodWhenUp: Bool = true
+    @Environment(\.fsTheme) var t
+
+    var body: some View {
+        let flat = delta == 0
+        let up = delta > 0
+        let good = flat ? false : up == goodWhenUp
+        let deltaColor = flat ? t.textTer : (good ? t.pos : t.neg)
+
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label.uppercased())
+                .font(.system(size: 11, weight: .bold))
+                .kerning(0.6)
+                .foregroundColor(t.textTer)
+            Text("\(value)")
+                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .foregroundColor(t.text)
+                .minimumScaleFactor(0.6)
+            HStack(spacing: 3) {
+                Image(systemName: flat ? "minus" : (up ? "arrow.up" : "arrow.down"))
+                    .font(.system(size: 10, weight: .bold))
+                Text(flat ? "변화 없음" : "\(abs(delta))")
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+            }
+            .foregroundColor(deltaColor)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(t.bgElev)
+        .cornerRadius(14)
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(t.line, lineWidth: 0.5))
+    }
+}
+
+// MARK: - PlayerCompareSection (선수 2명 비교)
+
+struct PlayerCompareSection: View {
+    let players: [PlayerStats]
+    @State private var idA: Int
+    @State private var idB: Int
+    @Environment(\.fsTheme) var t
+
+    init(players: [PlayerStats]) {
+        self.players = players
+        _idA = State(initialValue: players.first?.id ?? 0)
+        _idB = State(initialValue: players.count > 1 ? players[1].id : players.first?.id ?? 0)
+    }
+
+    private func perGameGoal(_ p: PlayerStats?) -> Double {
+        guard let p, p.games > 0 else { return 0 }
+        return Double(p.goal) / Double(p.games)
+    }
+
+    var body: some View {
+        // 통계 갱신으로 선택했던 선수가 사라지면 첫 선수로 대체
+        let a = players.first { $0.id == idA } ?? players.first
+        let b = players.first { $0.id == idB } ?? (players.count > 1 ? players[1] : players.first)
+        let rows: [(label: String, a: Double, b: Double, fmt: (Double) -> String)] = [
+            ("경기", Double(a?.games ?? 0), Double(b?.games ?? 0), { "\(Int($0))" }),
+            ("골", Double(a?.goal ?? 0), Double(b?.goal ?? 0), { "\(Int($0))" }),
+            ("도움", Double(a?.assist ?? 0), Double(b?.assist ?? 0), { "\(Int($0))" }),
+            ("출전(분)", Double(a?.min ?? 0), Double(b?.min ?? 0), { "\(Int($0))" }),
+            ("경기당 골", perGameGoal(a), perGameGoal(b), { String(format: "%.2f", $0) }),
+        ]
+
+        FSSectionHeader(title: "선수 비교")
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                playerHead(player: a, selection: $idA)
+                Text("vs")
+                    .font(.system(size: 11, weight: .black))
+                    .foregroundColor(t.textTer)
+                playerHead(player: b, selection: $idB)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 12)
+
+            Divider().background(t.line)
+
+            ForEach(Array(rows.enumerated()), id: \.offset) { i, row in
+                HStack {
+                    Text(row.fmt(row.a))
+                        .font(.system(size: 15, weight: row.a > row.b ? .black : .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundColor(row.a > row.b ? t.accent : t.text)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(row.label)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(t.textSec)
+                    Text(row.fmt(row.b))
+                        .font(.system(size: 15, weight: row.b > row.a ? .black : .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundColor(row.b > row.a ? t.accent : t.text)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 9)
+                if i < rows.count - 1 {
+                    Divider().background(t.line)
+                }
+            }
+        }
+        .background(t.bgElev)
+        .cornerRadius(12)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(t.line, lineWidth: 0.5))
+        .padding(.horizontal, 16)
+        // 선택했던 선수가 목록에서 사라지면 Picker 선택값도 함께 되돌린다 (invalid selection 경고 방지)
+        .onChange(of: players.map(\.id)) { _, ids in
+            if !ids.contains(idA) { idA = ids.first ?? 0 }
+            if !ids.contains(idB) { idB = ids.count > 1 ? ids[1] : (ids.first ?? 0) }
+        }
+    }
+
+    private func playerHead(player: PlayerStats?, selection: Binding<Int>) -> some View {
+        HStack(spacing: 8) {
+            FSPlayerAvatar(number: player?.number, size: 32)
+            Picker("비교할 선수", selection: selection) {
+                ForEach(players) { p in
+                    Text("\(p.number.map { "\($0). " } ?? "")\(p.name)").tag(p.id)
+                }
+            }
+            .pickerStyle(.menu)
+            .tint(t.text)
+            .labelsHidden()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

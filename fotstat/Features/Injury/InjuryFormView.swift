@@ -39,9 +39,12 @@ struct InjuryFormView: View {
             Form {
                 Section("선수") {
                     if editingId == nil {
+                        // 이미 부상 중인 선수는 표시해 실수 중복 등록을 방지 (의도적 복수 부상 등록은 허용)
+                        let injured = vm.activeInjuredPlayerIds
                         Picker("선수", selection: $playerId) {
                             ForEach(vm.players) { player in
-                                Text(playerLabel(player)).tag(player.id)
+                                Text(playerLabel(player) + (injured.contains(player.id) ? " · 부상 중" : ""))
+                                    .tag(player.id)
                             }
                         }
                     } else {

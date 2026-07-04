@@ -6,6 +6,8 @@ struct HomeView: View {
     @StateObject private var vm = TeamViewModel()
     @State private var showAddTeam = false
     @State private var newTeamName = ""
+    @State private var teamToRename: Team?
+    @State private var renameTeamName = ""
     @State private var teamToDelete: Team?
     @State private var showSettings = false
     @Environment(\.fsTheme) var t
@@ -50,6 +52,12 @@ struct HomeView: View {
                                     }
                                     .buttonStyle(.plain)
                                     .contextMenu {
+                                        Button {
+                                            renameTeamName = team.name
+                                            teamToRename = team
+                                        } label: {
+                                            Label("이름 수정", systemImage: "pencil")
+                                        }
                                         Button(role: .destructive) {
                                             teamToDelete = team
                                         } label: {
@@ -103,6 +111,23 @@ struct HomeView: View {
                 Task { await vm.createTeam(name: newTeamName); newTeamName = "" }
             }
             Button("취소", role: .cancel) { newTeamName = "" }
+        }
+        .alert(
+            "이름 수정",
+            isPresented: Binding(
+                get: { teamToRename != nil },
+                set: { if !$0 { teamToRename = nil } }
+            ),
+            presenting: teamToRename
+        ) { team in
+            TextField("팀 이름", text: $renameTeamName)
+            Button("저장") {
+                let name = renameTeamName.trimmingCharacters(in: .whitespaces)
+                guard !name.isEmpty else { return }
+                // updateTeam 이 성공 시 목록을 다시 불러온다
+                Task { await vm.updateTeam(id: team.id, name: name); renameTeamName = "" }
+            }
+            Button("취소", role: .cancel) { renameTeamName = "" }
         }
         .confirmationDialog(
             "팀 삭제",

@@ -75,6 +75,28 @@ struct TeamHomeView: View {
         }
     }
 
+    /// 선택한 날짜가 생일(월·일 일치, 매년 반복)인 선수 목록.
+    private var selectedDateBirthdayPlayers: [Player] {
+        guard let date = selectedDate else { return [] }
+        let cal = Calendar.current
+        let month = cal.component(.month, from: date)
+        let day = cal.component(.day, from: date)
+        return injuryVM.players.filter { player in
+            guard let md = player.birthMonthDay else { return false }
+            return md.month == month && md.day == day
+        }
+    }
+
+    /// "🎂 홍길동 생일 (만 N세)" — 출생 연도를 알 수 없으면 나이 생략.
+    private func birthdayLabel(for player: Player, on date: Date) -> String {
+        var label = "🎂 \(player.name) 생일"
+        if let year = player.birthYear {
+            let age = Calendar.current.component(.year, from: date) - year
+            if age >= 0 { label += " (만 \(age)세)" }
+        }
+        return label
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
@@ -82,8 +104,8 @@ struct TeamHomeView: View {
 
                 TeamSummaryCard(team: team, matches: matchVM.matches, recentMatches: recentFinished, matchResults: matchVM.matchResults)
                 
-                // 달력
-                FSCalendarView(matches: matchVM.matches, selectedDate: $selectedDate)
+                // 달력 (경기일 + 선수 생일 마커)
+                FSCalendarView(matches: matchVM.matches, players: injuryVM.players, selectedDate: $selectedDate)
                     .padding(.top, 8)
 
                 // 경기
@@ -116,6 +138,31 @@ struct TeamHomeView: View {
                         .foregroundColor(t.textSec)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
+                }
+
+                // 선택한 날짜의 선수 생일
+                let birthdayPlayers = selectedDateBirthdayPlayers
+                if let date = selectedDate, !birthdayPlayers.isEmpty {
+                    VStack(spacing: 0) {
+                        ForEach(Array(birthdayPlayers.enumerated()), id: \.element.id) { i, player in
+                            HStack {
+                                Text(birthdayLabel(for: player, on: date))
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(t.text)
+                                Spacer()
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 12)
+                            if i < birthdayPlayers.count - 1 {
+                                Divider().background(t.line)
+                            }
+                        }
+                    }
+                    .background(t.bgElev)
+                    .cornerRadius(12)
+                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(t.line, lineWidth: 0.5))
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
                 }
 
                 // 부상자 명단
@@ -378,6 +425,7 @@ struct FSTeamHeader: View {
 
 private struct FSCalendarView: View {
     let matches: [Match]
+    let players: [Player]
     @Binding var selectedDate: Date?
     @Environment(\.fsTheme) var t
 
@@ -391,6 +439,17 @@ private struct FSCalendarView: View {
             guard let d = $0.parsedDate else { return false }
             return cal.isDate(d, inSameDayAs: date)
         }
+    }
+
+    /// 선수 생일(월·일) 집합 — 매년 반복되므로 연도는 무시. 키는 month*100+day.
+    private var birthdayKeys: Set<Int> {
+        Set(players.compactMap { player in
+            player.birthMonthDay.map { $0.month * 100 + $0.day }
+        })
+    }
+
+    private func hasBirthday(on date: Date, keys: Set<Int>) -> Bool {
+        keys.contains(cal.component(.month, from: date) * 100 + cal.component(.day, from: date))
     }
 
     private var days: [Date?] {
@@ -450,12 +509,14 @@ private struct FSCalendarView: View {
             }
 
             // 날짜 그리드
+            let bdayKeys = birthdayKeys
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 0), count: 7), spacing: 4) {
                 ForEach(Array(days.enumerated()), id: \.offset) { _, date in
                     if let date = date {
                         let isSelected = selectedDate.map { cal.isDate($0, inSameDayAs: date) } ?? false
                         let isToday = cal.isDateInToday(date)
                         let hasMatchDay = hasMatch(on: date)
+                        let hasBirthdayDay = hasBirthday(on: date, keys: bdayKeys)
                         let day = cal.component(.day, from: date)
 
                         Button {
@@ -477,9 +538,16 @@ private struct FSCalendarView: View {
                                     )
                                     .clipShape(Circle())
 
-                                Circle()
-                                    .fill(hasMatchDay ? t.accent : Color.clear)
-                                    .frame(width: 4, height: 4)
+                                // 경기일 점(accent) + 생일 점(yellow) — 둘 다 없으면 자리만 유지
+                                HStack(spacing: 3) {
+                                    if hasMatchDay {
+                                        Circle().fill(t.accent).frame(width: 4, height: 4)
+                                    }
+                                    if hasBirthdayDay {
+                                        Circle().fill(t.yellow).frame(width: 4, height: 4)
+                                    }
+                                }
+                                .frame(height: 4)
                             }
                             .frame(maxWidth: .infinity)
                         }

@@ -41,6 +41,27 @@ struct Player: Decodable, Identifiable {
     }
 }
 
+extension Player {
+    /// 생일 "yyyy-MM-dd"(뒤에 시간이 붙어도 무방)에서 (월, 일) 추출 — 매년 반복되는 생일 판정용.
+    /// 형식이 어긋나면 nil. (2월 29일생은 평년 달력에 해당 날짜가 없어 윤년에만 표시된다.)
+    var birthMonthDay: (month: Int, day: Int)? {
+        guard let birthdate, !birthdate.isEmpty else { return nil }
+        let parts = birthdate.prefix(10).split(separator: "-")
+        guard parts.count == 3,
+              let month = Int(parts[1]), let day = Int(parts[2]),
+              (1...12).contains(month), (1...31).contains(day) else { return nil }
+        return (month, day)
+    }
+
+    /// 생일 문자열에서 출생 연도 — 나이 표시용. 형식이 어긋나면 nil.
+    var birthYear: Int? {
+        guard let birthdate, !birthdate.isEmpty else { return nil }
+        let parts = birthdate.prefix(10).split(separator: "-")
+        guard parts.count == 3, let year = Int(parts[0]), year > 0 else { return nil }
+        return year
+    }
+}
+
 // MARK: - Match
 
 struct Match: Decodable, Identifiable, Hashable {
@@ -109,6 +130,7 @@ struct TeamStats: Decodable {
     var wins: Int = 0
     var draws: Int = 0
     var losses: Int = 0
+    var totalConceded: Int = 0   // 기간 내 실점(상대 골) 합계
 }
 
 struct PlayerStats: Decodable, Identifiable, Hashable {
