@@ -25,6 +25,7 @@ final class RecordViewModel: ObservableObject {
     private var savingPlayerIds: Set<Int> = []        // 저장 루프 중복 진입 방지
     private var createdPlayerIds: Set<Int> = []       // 이미 create 한 선수 — 중복 생성 방지
     private var saveTasks: [Int: Task<Void, Never>] = [:]
+    private var pendingSaveIds: Set<Int> = []         // 디바운스 대기 중(아직 전송 전)인 선수
 
     init(quarter: Quarter, team: Team, match: Match) {
         self.quarter = quarter
@@ -148,10 +149,23 @@ final class RecordViewModel: ObservableObject {
 
     private func scheduleSave(_ playerId: Int) {
         saveTasks[playerId]?.cancel()
+        pendingSaveIds.insert(playerId)
         saveTasks[playerId] = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 600_000_000) // 0.6초 디바운스
             guard !Task.isCancelled else { return }
+            self?.pendingSaveIds.remove(playerId)
             await self?.persist(playerId: playerId)
+        }
+    }
+
+    // 화면 이탈 시 디바운스 대기분을 즉시 저장 — 마지막 입력 후 0.6초 안에 나가면 유실되는 문제 방지.
+    // self를 강하게 잡아 저장이 끝날 때까지 ViewModel을 살려둔다.
+    func flushPendingSaves() {
+        let ids = pendingSaveIds
+        pendingSaveIds.removeAll()
+        for id in ids {
+            saveTasks[id]?.cancel()
+            Task { await self.persist(playerId: id) }
         }
     }
 
