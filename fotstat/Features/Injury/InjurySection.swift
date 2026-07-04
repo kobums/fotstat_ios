@@ -1,68 +1,78 @@
 import SwiftUI
 
-/// 팀 홈의 "부상자 명단" 섹션. 현재 부상 중인 선수를 카드로 보여주고,
-/// 행 탭 시 수정, 헤더의 + 로 신규 등록 폼을 연다. 결장 경기 수는 팀 경기(matches)와
-/// 부상 기간을 대조해 계산한다.
+/// "부상자 명단" 섹션. 현재 부상 중인 선수를 카드로 보여준다.
+/// 기본(선수단 탭)은 행 탭 시 수정, 헤더의 + 로 신규 등록 폼을 연다.
+/// isReadOnly(팀 홈)면 표시 전용 — +/행 탭이 없고 부상자가 없으면 섹션 자체를 숨긴다.
+/// 결장 경기 수는 팀 경기(vm.matches)와 부상 기간을 대조해 계산한다.
 struct InjurySection: View {
     @ObservedObject var vm: InjuryViewModel
-    let matches: [Match]
+    var isReadOnly: Bool = false
     @Environment(\.fsTheme) var t
 
     @State private var editing: InjuryDraft? = nil
 
     var body: some View {
+        let active = vm.activeInjuries
         VStack(spacing: 0) {
-            HStack {
-                Text("부상자 명단")
-                    .font(.system(size: 13, weight: .bold))
-                    .kerning(0.6)
-                    .foregroundColor(t.textSec)
-                Spacer()
-                Button {
-                    let firstPlayer = vm.players.first?.id ?? 0
-                    editing = .new(playerId: firstPlayer, today: Self.todayString())
-                } label: {
-                    Image(systemName: "plus")
+            if !(isReadOnly && active.isEmpty) {
+                HStack {
+                    Text("부상자 명단")
                         .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(t.accent)
-                        .frame(width: 28, height: 28)
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 14)
-            .padding(.bottom, 8)
-
-            let active = vm.activeInjuries
-            if active.isEmpty {
-                Text("현재 부상 중인 선수가 없습니다")
-                    .font(.system(size: 13))
-                    .foregroundColor(t.textSec)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-            } else {
-                VStack(spacing: 0) {
-                    ForEach(Array(active.enumerated()), id: \.element.id) { i, injury in
+                        .kerning(0.6)
+                        .foregroundColor(t.textSec)
+                    Spacer()
+                    if !isReadOnly {
                         Button {
-                            editing = .from(injury)
+                            let firstPlayer = vm.players.first?.id ?? 0
+                            editing = .new(playerId: firstPlayer, today: Self.todayString())
                         } label: {
-                            InjuryRow(
+                            Image(systemName: "plus")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundColor(t.accent)
+                                .frame(width: 28, height: 28)
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
+                .padding(.bottom, 8)
+
+                if active.isEmpty {
+                    Text("현재 부상 중인 선수가 없습니다")
+                        .font(.system(size: 13))
+                        .foregroundColor(t.textSec)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                } else {
+                    VStack(spacing: 0) {
+                        ForEach(Array(active.enumerated()), id: \.element.id) { i, injury in
+                            let row = InjuryRow(
                                 name: vm.playerName(for: injury.player),
                                 number: vm.playerNumber(for: injury.player),
                                 type: injury.type,
                                 startdate: String((injury.startdate ?? "").prefix(10)),
-                                absentGames: vm.absentGames(for: injury, matches: matches)
+                                absentGames: vm.absentGames(for: injury, matches: vm.matches)
                             )
-                        }
-                        .buttonStyle(.plain)
-                        if i < active.count - 1 {
-                            Divider().background(t.line)
+                            if isReadOnly {
+                                row
+                            } else {
+                                Button {
+                                    editing = .from(injury)
+                                } label: {
+                                    row
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            if i < active.count - 1 {
+                                Divider().background(t.line)
+                            }
                         }
                     }
+                    .background(t.bgElev)
+                    .cornerRadius(12)
+                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(t.line, lineWidth: 0.5))
+                    .padding(.horizontal, 16)
                 }
-                .background(t.bgElev)
-                .cornerRadius(12)
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(t.line, lineWidth: 0.5))
-                .padding(.horizontal, 16)
             }
         }
         .sheet(item: $editing) { draft in

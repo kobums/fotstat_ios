@@ -64,6 +64,13 @@ struct TeamStatsContentView: View {
         }
         .background(t.bg.ignoresSafeArea())
         .task { await vm.fetch() }
+        .onReceive(NotificationCenter.default.publisher(for: .playerDeleted)) { _ in
+            Task { await vm.fetch() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .injuryChanged)) { _ in
+            // 결장 경기 수가 부상 데이터 기반이라 부상 변경 시 재집계
+            Task { await vm.fetch() }
+        }
     }
 }
 
@@ -162,7 +169,8 @@ struct StatsView: View {
 // MARK: - StatRankRow
 
 struct StatRankRow: View {
-    let rank: Int
+    // nil = 기록 없음(순위 대신 "-" 표시)
+    let rank: Int?
     let player: PlayerStats
     let value: Int
     let maxValue: Int
@@ -172,7 +180,7 @@ struct StatRankRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Text("\(rank)")
+            Text(rank.map(String.init) ?? "-")
                 .font(.system(size: 14, weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .lineLimit(1)
@@ -231,7 +239,9 @@ struct RankingSection: View {
     @Environment(\.fsTheme) var t
 
     var body: some View {
-        let ranked = players.filter { value($0) > 0 }.sorted { value($0) > value($1) }
+        // 자세히 보기는 기록 0인 선수까지 스쿼드 전원을 보여준다 (웹과 동일)
+        let allRanked = players.sorted { value($0) > value($1) }
+        let ranked = allRanked.filter { value($0) > 0 }
         let maxVal = ranked.first.map { value($0) } ?? 1
         let top = Array(ranked.prefix(3))
 
@@ -254,7 +264,7 @@ struct RankingSection: View {
                         Divider().background(t.line)
                     }
                 }
-                if ranked.count > 3 {
+                if allRanked.count > top.count {
                     Divider().background(t.line)
                     Button { showAll = true } label: {
                         HStack(spacing: 4) {
@@ -280,7 +290,7 @@ struct RankingSection: View {
             }
             .sheet(isPresented: $showAll) {
                 RankingAllSheet(
-                    title: title, ranked: ranked, maxVal: maxVal,
+                    title: title, ranked: allRanked, maxVal: maxVal,
                     value: value, valueLabel: valueLabel, subLabel: subLabel,
                     allPlayers: players
                 )
@@ -341,7 +351,7 @@ struct RankingAllSheet: View {
                     ForEach(Array(ranked.enumerated()), id: \.element.id) { i, player in
                         Button { selectedPlayer = player } label: {
                             StatRankRow(
-                                rank: i + 1,
+                                rank: value(player) > 0 ? i + 1 : nil,
                                 player: player,
                                 value: value(player),
                                 maxValue: maxVal,

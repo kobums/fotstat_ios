@@ -2,12 +2,15 @@ import SwiftUI
 
 struct PlayerListView: View {
     @StateObject private var vm: PlayerViewModel
+    @StateObject private var injuryVM: InjuryViewModel
     @State private var showAddPlayer = false
     @State private var editingPlayer: Player?
+    @State private var playerToDelete: Player?
     @Environment(\.fsTheme) var t
 
     init(team: Team) {
         _vm = StateObject(wrappedValue: PlayerViewModel(team: team))
+        _injuryVM = StateObject(wrappedValue: InjuryViewModel(team: team))
     }
 
     // 포지션 그룹
@@ -28,6 +31,9 @@ struct PlayerListView: View {
             ScrollView {
                 VStack(spacing: 0) {
                     FSTeamHeader(team: vm.team, tab: .squad)
+
+                    // 부상자 명단 — 등록·수정·복귀 처리는 이 탭에서 담당 (홈은 표시 전용)
+                    InjurySection(vm: injuryVM)
 
                     if vm.isLoading {
                         ProgressView().padding(.top, 80)
@@ -58,6 +64,14 @@ struct PlayerListView: View {
                                             PlayerRow(player: player)
                                                 .contentShape(Rectangle())
                                                 .onTapGesture { editingPlayer = player }
+                                                .contextMenu {
+                                                    Button(role: .destructive) {
+                                                        playerToDelete = player
+                                                    } label: {
+                                                        Label("선수 삭제", systemImage: "trash")
+                                                    }
+                                                    .disabled(vm.deletingPlayerIds.contains(player.id))
+                                                }
                                             if i < players.count - 1 {
                                                 Divider().padding(.leading, 56).background(t.line)
                                             }
@@ -97,6 +111,11 @@ struct PlayerListView: View {
         }
         .background(t.bg.ignoresSafeArea())
         .task { await vm.fetchPlayers() }
+        .task { await injuryVM.fetch() }
+        .onReceive(NotificationCenter.default.publisher(for: .playerDeleted)) { _ in
+            // 선수 삭제 시 부상 내역도 CASCADE 삭제되므로 부상 섹션 재조회
+            Task { await injuryVM.fetch() }
+        }
         .sheet(isPresented: $showAddPlayer) {
             PlayerFormView(title: "선수 추가") { name, number, pos, birthdate in
                 Task { await vm.createPlayer(name: name, number: number, pos: pos, birthdate: birthdate) }
@@ -108,6 +127,30 @@ struct PlayerListView: View {
                 Task { await vm.updatePlayer(id: player.id, name: name, number: number, pos: pos, birthdate: birthdate) }
             }
             .environment(\.fsTheme, t)
+        }
+        .confirmationDialog(
+            "선수 삭제",
+            isPresented: Binding(
+                get: { playerToDelete != nil },
+                set: { if !$0 { playerToDelete = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: playerToDelete
+        ) { player in
+            Button("삭제", role: .destructive) {
+                Task { await vm.deletePlayer(id: player.id) }
+            }
+            Button("취소", role: .cancel) {}
+        } message: { player in
+            Text("'\(player.name)' 선수와 해당 선수의 경기 기록·부상 내역이 모두 삭제됩니다. 이 작업은 되돌릴 수 없습니다.")
+        }
+        .alert(
+            "오류",
+            isPresented: Binding(get: { vm.errorMessage != nil }, set: { if !$0 { vm.errorMessage = nil } })
+        ) {
+            Button("확인", role: .cancel) { vm.errorMessage = nil }
+        } message: {
+            Text(vm.errorMessage ?? "")
         }
     }
 }
