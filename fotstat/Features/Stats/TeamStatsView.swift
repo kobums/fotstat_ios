@@ -155,7 +155,8 @@ func loadStats(teamId: Int, from startDate: Date? = nil, to endDate: Date? = nil
         return finished.filter { match in
             let day = String(match.matchdate.prefix(10))
             guard !day.isEmpty else { return false }
-            return periods.contains { $0.start <= day && day <= $0.end }
+            // 발생일 당일 경기는 뛴 것으로 보고 결장에서 제외 (start < day)
+            return periods.contains { $0.start < day && day <= $0.end }
         }.count
     }
 

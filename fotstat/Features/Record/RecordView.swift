@@ -2,15 +2,28 @@ import SwiftUI
 
 struct RecordView: View {
     @StateObject private var vm: RecordViewModel
+    @StateObject private var injuryVM: InjuryViewModel   // 부상 등록 시트용 — 네트워크는 시트 오픈 시에만
     let match: Match
     @Environment(\.fsTheme) var t
     @Environment(\.dismiss) var dismiss
 
     @State private var activePid: Int? = nil
+    @State private var injuryDraft: InjuryDraft? = nil
 
     init(quarter: Quarter, team: Team, match: Match) {
         self.match = match
         _vm = StateObject(wrappedValue: RecordViewModel(quarter: quarter, team: team, match: match))
+        _injuryVM = StateObject(wrappedValue: InjuryViewModel(team: team))
+    }
+
+    // 부상 발생일 프리필 = 경기일. 폼의 DatePicker 범위(...오늘) 때문에 미래(예정) 경기는 오늘로 clamp
+    private var injuryStartdate: String {
+        let matchDay = String(match.matchdate.prefix(10))
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        let today = f.string(from: Date())
+        return matchDay.isEmpty ? today : min(matchDay, today)
     }
 
     private var quarterLabel: String {
@@ -123,6 +136,9 @@ struct RecordView: View {
                                     },
                                     onUpdate: { min, goal, assist, yellow, red in
                                         vm.updateDraft(playerId: player.id, min: min, goal: goal, assist: assist, yellowcard: yellow, redcard: red)
+                                    },
+                                    onRegisterInjury: {
+                                        injuryDraft = .new(playerId: player.id, startdate: injuryStartdate)
                                     }
                                 )
                             }
@@ -138,6 +154,15 @@ struct RecordView: View {
         .toolbar(.hidden, for: .navigationBar)
         .task { await vm.fetch() }
         .onDisappear { vm.flushPendingSaves() }
+        .sheet(item: $injuryDraft) { draft in
+            InjuryFormView(vm: injuryVM, draft: draft)
+                .environment(\.fsTheme, t)
+                .task { await injuryVM.fetch() }   // 선수 Picker·부상 중 표시용 데이터
+        }
+        // 시트에서 부상 저장 시 입력 차단 상태 즉시 반영 (drafts는 건드리지 않음)
+        .onReceive(NotificationCenter.default.publisher(for: .injuryChanged)) { _ in
+            Task { await vm.refreshInjuries() }
+        }
         .alert(
             "저장 실패",
             isPresented: Binding(get: { vm.errorMessage != nil }, set: { if !$0 { vm.errorMessage = nil } })
@@ -160,6 +185,7 @@ struct RecordPlayerCard: View {
     let assistCap: Int   // 이 선수가 가질 수 있는 최대 어시스트(자기 골 어시 불가 + 팀 골 합 초과 불가)
     let onTap: () -> Void
     let onUpdate: (Int, Int, Int, Int, Int) -> Void
+    let onRegisterInjury: () -> Void   // 경기 중 부상 발생 시 이 화면에서 바로 등록
 
     @State private var mins: Int
     @State private var goals: Int
@@ -170,7 +196,7 @@ struct RecordPlayerCard: View {
     @FocusState private var minsFocused: Bool
     @Environment(\.fsTheme) var t
 
-    init(player: Player, draft: RecordViewModel.Draft, isActive: Bool, isInjured: Bool = false, maxMinutes: Int, assistCap: Int, onTap: @escaping () -> Void, onUpdate: @escaping (Int, Int, Int, Int, Int) -> Void) {
+    init(player: Player, draft: RecordViewModel.Draft, isActive: Bool, isInjured: Bool = false, maxMinutes: Int, assistCap: Int, onTap: @escaping () -> Void, onUpdate: @escaping (Int, Int, Int, Int, Int) -> Void, onRegisterInjury: @escaping () -> Void = {}) {
         self.player = player
         self.draft = draft
         self.isActive = isActive
@@ -179,6 +205,7 @@ struct RecordPlayerCard: View {
         self.assistCap = assistCap
         self.onTap = onTap
         self.onUpdate = onUpdate
+        self.onRegisterInjury = onRegisterInjury
         _mins = State(initialValue: draft.min)
         _minsText = State(initialValue: draft.min == 0 ? "" : "\(draft.min)")
         _goals = State(initialValue: draft.goal)
@@ -270,22 +297,42 @@ struct RecordPlayerCard: View {
                 }
                 .padding(.bottom, 8)
 
-                Button {
-                    minsText = "\(maxMinutes)"   // onChange가 0~120 클램프·mins 갱신·save 처리
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "arrow.up.to.line")
-                            .font(.system(size: 12, weight: .bold))
-                        Text("풀타임 \(maxMinutes)' 채우기")
-                            .font(.system(size: 13, weight: .bold))
+                HStack(spacing: 8) {
+                    Button {
+                        minsText = "\(maxMinutes)"   // onChange가 0~120 클램프·mins 갱신·save 처리
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrow.up.to.line")
+                                .font(.system(size: 12, weight: .bold))
+                            Text("풀타임 \(maxMinutes)' 채우기")
+                                .font(.system(size: 13, weight: .bold))
+                        }
+                        .foregroundColor(t.accent)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 9)
+                        .background(t.accentSoft)
+                        .cornerRadius(8)
                     }
-                    .foregroundColor(t.accent)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 9)
-                    .background(t.accentSoft)
-                    .cornerRadius(8)
+                    .buttonStyle(.plain)
+
+                    // 경기 중 부상 — 발생일이 경기일로 프리필된 등록 시트를 연다
+                    Button {
+                        onRegisterInjury()
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "cross.case")
+                                .font(.system(size: 12, weight: .bold))
+                            Text("부상 등록")
+                                .font(.system(size: 13, weight: .bold))
+                        }
+                        .foregroundColor(t.neg)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 9)
+                        .background(t.neg.opacity(0.1))
+                        .cornerRadius(8)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
         }
         .padding(10)
