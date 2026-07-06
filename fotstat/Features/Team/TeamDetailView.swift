@@ -102,7 +102,7 @@ struct TeamHomeView: View {
             VStack(spacing: 0) {
                 FSTeamHeader(team: team, tab: .home)
 
-                TeamSummaryCard(team: team, matches: matchVM.matches, recentMatches: recentFinished, matchResults: matchVM.matchResults)
+                TeamSummaryCard(team: team, matches: matchVM.matches, recentMatches: recentFinished, matchScores: matchVM.matchScores)
                 
                 // 달력 (경기일 + 선수 생일 마커)
                 FSCalendarView(matches: matchVM.matches, players: injuryVM.players, selectedDate: $selectedDate)
@@ -174,7 +174,7 @@ struct TeamHomeView: View {
                     VStack(spacing: 0) {
                         ForEach(Array(recentFinished.enumerated()), id: \.element.id) { i, match in
                             NavigationLink(value: match) {
-                                MatchRow(match: match, teamName: team.name)
+                                MatchRow(match: match, score: matchVM.matchScores[match.id])
                             }
                             .buttonStyle(.plain)
                             if i < recentFinished.count - 1 {
@@ -214,7 +214,7 @@ private struct TeamSummaryCard: View {
     let team: Team
     let matches: [Match]
     let recentMatches: [Match]
-    let matchResults: [Int: String]
+    let matchScores: [Int: MatchScore]
     @Environment(\.fsTheme) var t
 
     private var totalCount: Int { matches.count }
@@ -256,8 +256,8 @@ private struct TeamSummaryCard: View {
                     Spacer()
                     HStack(spacing: 4) {
                         ForEach(Array(recentMatches.prefix(5).reversed()), id: \.id) { match in
-                            FSResultPill(result: matchResults[match.id] ?? "?", size: 22)
-                                .opacity(matchResults[match.id] == nil ? 0.25 : 1)
+                            FSResultPill(result: matchScores[match.id]?.result ?? "?", size: 22)
+                                .opacity(matchScores[match.id] == nil ? 0.25 : 1)
                         }
                     }
                 }
