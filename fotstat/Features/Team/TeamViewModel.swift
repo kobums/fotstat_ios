@@ -38,11 +38,11 @@ final class TeamViewModel: ObservableObject {
         }
     }
 
-    func updateTeam(id: Int, name: String) async {
+    func updateTeam(id: Int, name: String, duration: Int? = nil) async {
         guard let userId = AuthManager.shared.currentUser?.id else { return }
         do {
             _ = try await APIClient.shared.request(
-                .updateTeam(id: id, userId: userId, name: name),
+                .updateTeam(id: id, userId: userId, name: name, duration: duration),
                 responseType: CodeResponse.self
             )
             await fetchTeams()

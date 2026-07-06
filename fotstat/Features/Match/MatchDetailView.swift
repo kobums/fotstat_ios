@@ -190,7 +190,12 @@ struct MatchDetailView: View {
                 Spacer()
                 HStack {
                     Spacer()
-                    Button { showAddQuarter = true } label: {
+                    Button {
+                        // 기본 시간 프리필: 이전 쿼터 > 팀 설정값 > 45분
+                        let lastDuration = vm.quarters.max(by: { $0.number < $1.number })?.duration
+                        newQuarterDuration = lastDuration ?? team.duration ?? 45
+                        showAddQuarter = true
+                    } label: {
                         Image(systemName: "plus")
                             .font(.system(size: 22, weight: .bold))
                             .foregroundColor(.white)

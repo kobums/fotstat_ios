@@ -70,8 +70,10 @@ extension Endpoint {
         Endpoint(path: "/team", method: .POST, body: ["user": userId, "name": name])
     }
 
-    static func updateTeam(id: Int, userId: Int, name: String) -> Endpoint {
-        Endpoint(path: "/team", method: .PUT, body: ["id": id, "user": userId, "name": name])
+    static func updateTeam(id: Int, userId: Int, name: String, duration: Int? = nil) -> Endpoint {
+        var body: [String: Any] = ["id": id, "user": userId, "name": name]
+        if let duration { body["duration"] = duration }
+        return Endpoint(path: "/team", method: .PUT, body: body)
     }
 
     static func deleteTeam(id: Int) -> Endpoint {
