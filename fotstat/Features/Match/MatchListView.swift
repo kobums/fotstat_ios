@@ -125,7 +125,7 @@ struct MatchListView: View {
         VStack(spacing: 0) {
             ForEach(Array(matches.enumerated()), id: \.element.id) { i, match in
                 NavigationLink(value: match) {
-                    MatchRow(match: match, teamName: vm.team.name, isUpcoming: isUpcoming)
+                    MatchRow(match: match, score: vm.matchScores[match.id], isUpcoming: isUpcoming)
                 }
                 .buttonStyle(.plain)
                 .contextMenu {
@@ -172,7 +172,7 @@ struct MonthDivider: View {
 
 struct MatchRow: View {
     let match: Match
-    let teamName: String
+    var score: MatchScore? = nil
     var isUpcoming: Bool = false
     @Environment(\.fsTheme) var t
 
@@ -201,15 +201,13 @@ struct MatchRow: View {
             }
             .frame(width: 34)
 
-            FSCrest(name: teamName, size: 22, radius: 5)
+            FSCrest(name: match.awayname, size: 26, radius: 6)
 
-            VStack(alignment: .leading, spacing: 0) {
-                Text(teamName).font(.system(size: 12, weight: .semibold)).foregroundColor(t.text)
-                Text(match.awayname).font(.system(size: 12, weight: .semibold)).foregroundColor(t.text)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            FSCrest(name: match.awayname, size: 22, radius: 5)
+            Text(match.awayname)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(t.text)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
             if isUpcoming {
                 Text("예정")
@@ -217,6 +215,13 @@ struct MatchRow: View {
                     .foregroundColor(t.accent)
                     .padding(.horizontal, 8).padding(.vertical, 3)
                     .background(t.accentSoft).cornerRadius(6)
+            } else if let score {
+                HStack(spacing: 6) {
+                    Text("\(score.home):\(score.away)")
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundColor(t.text)
+                    FSResultPill(result: score.result, label: score.resultLabel, size: 18)
+                }
             } else {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 11))
