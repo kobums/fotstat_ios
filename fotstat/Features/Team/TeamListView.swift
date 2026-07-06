@@ -8,6 +8,8 @@ struct HomeView: View {
     @State private var newTeamName = ""
     @State private var teamToRename: Team?
     @State private var renameTeamName = ""
+    @State private var teamToSetDuration: Team?
+    @State private var durationText = ""
     @State private var teamToDelete: Team?
     @State private var showSettings = false
     @Environment(\.fsTheme) var t
@@ -57,6 +59,12 @@ struct HomeView: View {
                                             teamToRename = team
                                         } label: {
                                             Label("이름 수정", systemImage: "pencil")
+                                        }
+                                        Button {
+                                            durationText = "\(team.duration ?? 45)"
+                                            teamToSetDuration = team
+                                        } label: {
+                                            Label("쿼터 기본 시간", systemImage: "clock")
                                         }
                                         Button(role: .destructive) {
                                             teamToDelete = team
@@ -128,6 +136,25 @@ struct HomeView: View {
                 Task { await vm.updateTeam(id: team.id, name: name); renameTeamName = "" }
             }
             Button("취소", role: .cancel) { renameTeamName = "" }
+        }
+        .alert(
+            "쿼터 기본 시간",
+            isPresented: Binding(
+                get: { teamToSetDuration != nil },
+                set: { if !$0 { teamToSetDuration = nil } }
+            ),
+            presenting: teamToSetDuration
+        ) { team in
+            TextField("분", text: $durationText)
+                .keyboardType(.numberPad)
+            Button("저장") {
+                // 쿼터 추가 시트와 동일한 1~120분 범위로 보정
+                let minutes = min(120, max(1, Int(durationText.filter(\.isNumber)) ?? 45))
+                Task { await vm.updateTeam(id: team.id, name: team.name, duration: minutes); durationText = "" }
+            }
+            Button("취소", role: .cancel) { durationText = "" }
+        } message: { _ in
+            Text("경기에 쿼터를 추가할 때 이 시간이 기본으로 표시됩니다. (1~120분)")
         }
         .confirmationDialog(
             "팀 삭제",
