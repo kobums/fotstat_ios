@@ -73,15 +73,31 @@ final class RecordViewModel: ObservableObject {
         }
     }
 
-    // 경기일이 부상 기간(startdate ~ returndate, returndate 비면 아직 부상 중)에 걸치는
-    // 선수 id 집합. 날짜는 "yyyy-MM-dd" 형태라 문자열 비교로 대소를 판단할 수 있다.
+    // 부상 목록만 재조회해 입력 차단 상태를 갱신한다. 이 화면에서 부상을 등록한 직후
+    // 즉시 반영용 — fetch()와 달리 drafts를 건드리지 않아 디바운스 대기 중 입력이 유실되지 않는다.
+    func refreshInjuries() async {
+        do {
+            let resp = try await APIClient.shared.request(
+                .injuries(teamId: team.id),
+                responseType: ItemsResponse<Injury>.self
+            )
+            injuredPlayerIds = Self.injuredPlayers(injuries: resp.items ?? [], on: match.matchdate)
+        } catch {
+            if !Self.isCancellation(error) { errorMessage = error.localizedDescription }
+        }
+    }
+
+    // 경기일이 부상 기간에 걸치는 선수 id 집합. 발생일 당일 경기는 제외한다
+    // (경기 중 부상 = 그날까지는 뛴 것) — 차단 범위는 발생일 다음 날부터 복귀일까지,
+    // returndate 비면 아직 부상 중. 백엔드 injuryConflict와 동일 규칙.
+    // 날짜는 "yyyy-MM-dd" 형태라 문자열 비교로 대소를 판단할 수 있다.
     static func injuredPlayers(injuries: [Injury], on matchdate: String) -> Set<Int> {
         let day = String(matchdate.prefix(10))
         guard !day.isEmpty else { return [] }
         var ids: Set<Int> = []
         for injury in injuries {
             let start = String((injury.startdate ?? "").prefix(10))
-            guard !start.isEmpty, start <= day else { continue }
+            guard !start.isEmpty, start < day else { continue }
             let end = String((injury.returndate ?? "").prefix(10))
             if end.isEmpty || day <= end {
                 ids.insert(injury.player)

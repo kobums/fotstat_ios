@@ -26,7 +26,7 @@ struct InjurySection: View {
                     Spacer()
                     if !isReadOnly {
                         Button {
-                            editing = .new(playerId: vm.defaultNewInjuryPlayerId, today: Self.todayString())
+                            editing = .new(playerId: vm.defaultNewInjuryPlayerId, startdate: Self.todayString())
                         } label: {
                             Image(systemName: "plus")
                                 .font(.system(size: 13, weight: .bold))
