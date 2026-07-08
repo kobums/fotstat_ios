@@ -9,6 +9,19 @@ private let injuryDayFormatter: DateFormatter = {
     return f
 }()
 
+// 통계·리포트 탭이 공유하는 조회 기간 — TeamContextView가 소유하고 두 탭에 주입한다.
+@MainActor
+final class StatsPeriod: ObservableObject {
+    @Published var startDate: Date? = Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: Date()))
+    @Published var endDate: Date? = Date()
+
+    /// onChange 하나로 시작·종료 변경을 함께 감지하기 위한 키 (초기화 버튼처럼
+    /// 두 날짜가 동시에 바뀌어도 재조회는 한 번만).
+    var key: String {
+        "\(startDate?.timeIntervalSince1970 ?? -1)|\(endDate?.timeIntervalSince1970 ?? -1)"
+    }
+}
+
 // TeamStatsViewModel – shared by TeamStatsContentView (StatsView.swift)
 
 @MainActor
@@ -17,8 +30,6 @@ final class TeamStatsViewModel: ObservableObject {
     /// 직전 동일 길이 기간의 통계 — "이전 기간 대비" 비교 타일용. 기간 미지정이면 nil.
     @Published var prevStats: TeamStats?
     @Published var isLoading = false
-    @Published var startDate: Date? = Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: Date()))
-    @Published var endDate: Date? = Date()
 
     let team: Team
 
@@ -26,7 +37,7 @@ final class TeamStatsViewModel: ObservableObject {
         self.team = team
     }
 
-    func fetch() async {
+    func fetch(start startDate: Date?, end endDate: Date?) async {
         isLoading = true
         defer { isLoading = false }
         if let s = startDate, let e = endDate, let prev = Self.previousRange(start: s, end: e) {
@@ -36,7 +47,9 @@ final class TeamStatsViewModel: ObservableObject {
             stats = await current
             prevStats = await previous
         } else {
-            stats = await loadStats(teamId: team.id, from: startDate, to: endDate)
+            // 기간 경계는 항상 일 단위로 정규화 — 리포트 탭(ReportViewModel)과 동일 규칙
+            let start = startDate.map { Calendar.current.startOfDay(for: $0) }
+            stats = await loadStats(teamId: team.id, from: start, to: endDate)
             prevStats = nil
         }
     }
@@ -53,8 +66,19 @@ final class TeamStatsViewModel: ObservableObject {
     }
 }
 
+/// 통계·리포트가 공유하는 원본 데이터 묶음 — 한 번의 fan-out(경기→쿼터→기록)으로
+/// 팀 통계 집계와 경기별 쿼터 리포트를 모두 만들 수 있다.
+struct TeamStatsRaw {
+    let players: [Player]
+    /// 기간 내 완료(오늘 이전) 경기
+    let finished: [Match]
+    let quarters: [Quarter]
+    let records: [Record]
+    let injuries: [Injury]
+}
+
 @MainActor
-func loadStats(teamId: Int, from startDate: Date? = nil, to endDate: Date? = nil) async -> TeamStats? {
+func loadStatsRaw(teamId: Int, from startDate: Date? = nil, to endDate: Date? = nil) async -> TeamStatsRaw? {
     async let playersReq = APIClient.shared.request(
         .players(teamId: teamId),
         responseType: ItemsResponse<Player>.self
@@ -80,9 +104,8 @@ func loadStats(teamId: Int, from startDate: Date? = nil, to endDate: Date? = nil
         finished = finished.filter { ($0.parsedDate ?? .distantFuture) <= endOfDay }
     }
 
-    // match → quarter, track quarterMatchMap for W/D/L later
+    // match → quarter
     var allQuarters: [Quarter] = []
-    var quarterMatchMap: [Int: (matchId: Int, awaygoals: Int)] = [:]
     await withTaskGroup(of: [Quarter].self) { group in
         for match in finished {
             group.addTask {
@@ -95,7 +118,6 @@ func loadStats(teamId: Int, from startDate: Date? = nil, to endDate: Date? = nil
         }
         for await quarters in group {
             allQuarters.append(contentsOf: quarters)
-            for q in quarters { quarterMatchMap[q.id] = (matchId: q.match, awaygoals: q.awaygoals) }
         }
     }
 
@@ -113,6 +135,26 @@ func loadStats(teamId: Int, from startDate: Date? = nil, to endDate: Date? = nil
         }
         for await r in group { allRecords.append(contentsOf: r) }
     }
+
+    return TeamStatsRaw(players: players, finished: finished,
+                        quarters: allQuarters, records: allRecords, injuries: injuries)
+}
+
+@MainActor
+func loadStats(teamId: Int, from startDate: Date? = nil, to endDate: Date? = nil) async -> TeamStats? {
+    guard let raw = await loadStatsRaw(teamId: teamId, from: startDate, to: endDate) else { return nil }
+    return computeTeamStats(raw)
+}
+
+@MainActor
+func computeTeamStats(_ raw: TeamStatsRaw) -> TeamStats {
+    let players = raw.players
+    let finished = raw.finished
+    let allQuarters = raw.quarters
+    let allRecords = raw.records
+    let injuries = raw.injuries
+    var quarterMatchMap: [Int: (matchId: Int, awaygoals: Int)] = [:]
+    for q in allQuarters { quarterMatchMap[q.id] = (matchId: q.match, awaygoals: q.awaygoals) }
 
     // player별 집계 + 경기 추적
     var agg: [Int: (goal: Int, assist: Int, min: Int)] = [:]

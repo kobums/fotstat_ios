@@ -6,26 +6,34 @@ private let playingTimeEmptyHint = "경기 기록에서 출전 시간(분)을 �
 
 struct TeamStatsContentView: View {
     let team: Team
+    /// 리포트 탭과 공유하는 조회 기간 (TeamContextView 소유)
+    @ObservedObject var period: StatsPeriod
     @StateObject private var vm: TeamStatsViewModel
     @Environment(\.fsTheme) var t
+    // iPad(세로·가로 모두 regular)는 순위 3종을 가로 나란히 + 전체 펼침,
+    // iPhone(compact)은 세로 스택 + top3 + 자세히 보기.
+    @Environment(\.horizontalSizeClass) private var hSize
 
-    init(team: Team) {
+    init(team: Team, period: StatsPeriod) {
         self.team = team
+        self.period = period
         _vm = StateObject(wrappedValue: TeamStatsViewModel(team: team))
     }
 
     var body: some View {
+        statsBody(isWide: hSize == .regular)
+    }
+
+    private func statsBody(isWide: Bool) -> some View {
         ZStack {
             ScrollView {
                 VStack(spacing: 0) {
                     FSTeamHeader(team: team, tab: .stats)
 
-                    // 날짜 필터
-                    DateRangeFilter(startDate: $vm.startDate, endDate: $vm.endDate) {
-                        Task { await vm.fetch() }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 14)
+                    // 날짜 필터 — 재조회는 onChange(period.key) 한 곳에서 처리
+                    DateRangeFilter(startDate: $period.startDate, endDate: $period.endDate) {}
+                        .padding(.horizontal, 16)
+                        .padding(.top, 14)
 
                     if vm.isLoading {
                         ProgressView().padding(.top, 40)
@@ -54,19 +62,21 @@ struct TeamStatsContentView: View {
                         }
 
                         if let stats = vm.stats, !stats.players.isEmpty {
-                            RankingSection(title: "득점 순위", players: stats.players,
-                                value: { $0.goal },
-                                valueLabel: { "\($0.goal)G" },
-                                subLabel: { "+\($0.assist)A" })
-                            RankingSection(title: "어시스트 순위", players: stats.players,
-                                value: { $0.assist },
-                                valueLabel: { "\($0.assist)A" },
-                                subLabel: { "\($0.goal)G" })
-                            RankingSection(title: "출전 시간 순위", players: stats.players,
-                                value: { $0.min },
-                                valueLabel: { "\($0.min)'" },
-                                subLabel: { "\($0.games)경기 · \($0.goal)G \($0.assist)A" },
-                                emptyHint: playingTimeEmptyHint)
+                            // iPad 가로: 득점 | 어시스트 | 출전 시간을 나란히, 전체 펼침
+                            if isWide {
+                                HStack(alignment: .top, spacing: 0) {
+                                    VStack(spacing: 0) { goalRanking(stats, expanded: true) }
+                                        .frame(maxWidth: .infinity, alignment: .top)
+                                    VStack(spacing: 0) { assistRanking(stats, expanded: true) }
+                                        .frame(maxWidth: .infinity, alignment: .top)
+                                    VStack(spacing: 0) { minRanking(stats, expanded: true) }
+                                        .frame(maxWidth: .infinity, alignment: .top)
+                                }
+                            } else {
+                                goalRanking(stats, expanded: false)
+                                assistRanking(stats, expanded: false)
+                                minRanking(stats, expanded: false)
+                            }
                         }
                     }
                 }
@@ -74,14 +84,47 @@ struct TeamStatsContentView: View {
             }
         }
         .background(t.bg.ignoresSafeArea())
-        .task { await vm.fetch() }
+        .task { await refetch() }
+        // 리포트 탭에서 기간을 바꿔도 이 탭이 함께 갱신된다 (공유 StatsPeriod)
+        .onChange(of: period.key) { _, _ in
+            Task { await refetch() }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .playerDeleted)) { _ in
-            Task { await vm.fetch() }
+            Task { await refetch() }
         }
         .onReceive(NotificationCenter.default.publisher(for: .injuryChanged)) { _ in
             // 결장 경기 수가 부상 데이터 기반이라 부상 변경 시 재집계
-            Task { await vm.fetch() }
+            Task { await refetch() }
         }
+    }
+
+    private func refetch() async {
+        await vm.fetch(start: period.startDate, end: period.endDate)
+    }
+
+    private func goalRanking(_ stats: TeamStats, expanded: Bool) -> some View {
+        RankingSection(title: "득점 순위", players: stats.players,
+            value: { $0.goal },
+            valueLabel: { "\($0.goal)G" },
+            subLabel: { "+\($0.assist)A" },
+            expanded: expanded)
+    }
+
+    private func assistRanking(_ stats: TeamStats, expanded: Bool) -> some View {
+        RankingSection(title: "어시스트 순위", players: stats.players,
+            value: { $0.assist },
+            valueLabel: { "\($0.assist)A" },
+            subLabel: { "\($0.goal)G" },
+            expanded: expanded)
+    }
+
+    private func minRanking(_ stats: TeamStats, expanded: Bool) -> some View {
+        RankingSection(title: "출전 시간 순위", players: stats.players,
+            value: { $0.min },
+            valueLabel: { "\($0.min)'" },
+            subLabel: { "\($0.games)경기 · \($0.goal)G \($0.assist)A" },
+            emptyHint: playingTimeEmptyHint,
+            expanded: expanded)
     }
 }
 
@@ -425,6 +468,8 @@ struct RankingSection: View {
     let valueLabel: (PlayerStats) -> String
     let subLabel: (PlayerStats) -> String
     var emptyHint: String? = nil
+    /// true면 스쿼드 전원(기록 0 포함)을 인라인으로 펼치고 '자세히 보기'를 숨긴다 (리포트 탭).
+    var expanded: Bool = false
     @State private var selectedPlayer: PlayerStats? = nil
     @State private var showAll = false
     @Environment(\.fsTheme) var t
@@ -434,7 +479,7 @@ struct RankingSection: View {
         let allRanked = players.sorted { value($0) > value($1) }
         let ranked = allRanked.filter { value($0) > 0 }
         let maxVal = ranked.first.map { value($0) } ?? 1
-        let top = Array(ranked.prefix(3))
+        let top = expanded ? allRanked : Array(ranked.prefix(3))
 
         if !ranked.isEmpty {
             FSSectionHeader(title: title)
@@ -442,7 +487,8 @@ struct RankingSection: View {
                 ForEach(Array(top.enumerated()), id: \.element.id) { i, player in
                     Button { selectedPlayer = player } label: {
                         StatRankRow(
-                            rank: i + 1,
+                            // 기록이 없는 선수는 순위 대신 "-" (RankingAllSheet와 동일)
+                            rank: value(player) > 0 ? i + 1 : nil,
                             player: player,
                             value: value(player),
                             maxValue: maxVal,
@@ -455,7 +501,7 @@ struct RankingSection: View {
                         Divider().background(t.line)
                     }
                 }
-                if allRanked.count > top.count {
+                if !expanded && allRanked.count > top.count {
                     Divider().background(t.line)
                     Button { showAll = true } label: {
                         HStack(spacing: 4) {

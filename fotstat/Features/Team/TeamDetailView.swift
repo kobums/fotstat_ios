@@ -4,6 +4,8 @@ import SwiftUI
 
 struct TeamContextView: View {
     let team: Team
+    /// 통계·리포트 탭이 공유하는 조회 기간 — 한 탭에서 바꾸면 다른 탭도 따라간다.
+    @StateObject private var statsPeriod = StatsPeriod()
     @Environment(\.fsTheme) var t
     @Environment(\.dismiss) var dismiss
 
@@ -22,7 +24,11 @@ struct TeamContextView: View {
                     .toolbar(.hidden, for: .navigationBar)
             }
             Tab("통계", systemImage: "chart.bar.fill") {
-                TeamStatsContentView(team: team)
+                TeamStatsContentView(team: team, period: statsPeriod)
+                    .toolbar(.hidden, for: .navigationBar)
+            }
+            Tab("리포트", systemImage: "doc.text.fill") {
+                ReportView(team: team, period: statsPeriod)
                     .toolbar(.hidden, for: .navigationBar)
             }
         }
