@@ -89,6 +89,10 @@ struct TeamStatsContentView: View {
         .onChange(of: period.key) { _, _ in
             Task { await refetch() }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .matchDeleted)) { _ in
+            // 경기 삭제 시 경기 수·승패 요약이 stale해지지 않게 재집계 (리포트 탭과 동일)
+            Task { await refetch() }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .playerDeleted)) { _ in
             Task { await refetch() }
         }
