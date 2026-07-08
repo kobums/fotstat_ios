@@ -131,6 +131,9 @@ private struct DatePickerSheet: View {
             DatePicker("", selection: $selected, displayedComponents: .date)
                 .datePickerStyle(.graphical)
                 .tint(t.accent)
+                // graphical 스타일은 가용 폭에 비례해 커지므로 iPad 시트에서
+                // 캘린더가 거대해져 선택 버튼을 밀어내지 않게 폭을 제한한다
+                .frame(maxWidth: 420)
                 .padding(.horizontal, 16)
 
             Button {
@@ -147,11 +150,18 @@ private struct DatePickerSheet: View {
             }
             .padding(.horizontal, 24)
             .padding(.top, 8)
-
-            Spacer()
+            .padding(.bottom, 20)
         }
         .background(t.bg.ignoresSafeArea())
-        .presentationDetents([.height(480)])
+        // iPhone: 480pt 바텀시트. iPad: 중앙 form 시트(폭 540) + 높이 660 —
+        // detents 높이가 form 시트에도 적용되므로 캘린더+버튼이 다 들어가게 키운다.
+        // (fitted는 graphical DatePicker의 ideal 폭을 좁게 계산해 시트가 세로
+        //  막대처럼 붕괴하므로 쓰지 않는다. form 시트 내부는 size class가 compact라
+        //  기기 idiom으로 분기한다.)
+        .presentationDetents([.height(Self.isPad ? 660 : 480)])
+        .presentationSizing(.form)
         .presentationDragIndicator(.hidden)
     }
+
+    private static let isPad = UIDevice.current.userInterfaceIdiom == .pad
 }
