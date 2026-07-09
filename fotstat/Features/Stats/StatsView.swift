@@ -111,7 +111,8 @@ struct TeamStatsContentView: View {
             value: { $0.goal },
             valueLabel: { "\($0.goal)G" },
             subLabel: { "+\($0.assist)A" },
-            expanded: expanded)
+            expanded: expanded,
+            raw: vm.raw)
     }
 
     private func assistRanking(_ stats: TeamStats, expanded: Bool) -> some View {
@@ -119,7 +120,8 @@ struct TeamStatsContentView: View {
             value: { $0.assist },
             valueLabel: { "\($0.assist)A" },
             subLabel: { "\($0.goal)G" },
-            expanded: expanded)
+            expanded: expanded,
+            raw: vm.raw)
     }
 
     private func minRanking(_ stats: TeamStats, expanded: Bool) -> some View {
@@ -128,7 +130,8 @@ struct TeamStatsContentView: View {
             valueLabel: { "\($0.min)'" },
             subLabel: { "\($0.games)경기 · \($0.goal)G \($0.assist)A" },
             emptyHint: playingTimeEmptyHint,
-            expanded: expanded)
+            expanded: expanded,
+            raw: vm.raw)
     }
 }
 
@@ -195,16 +198,19 @@ struct StatsView: View {
                             RankingSection(title: "득점 순위", players: stats.players,
                                 value: { $0.goal },
                                 valueLabel: { "\($0.goal)G" },
-                                subLabel: { "+\($0.assist)A" })
+                                subLabel: { "+\($0.assist)A" },
+                                raw: vm.raw)
                             RankingSection(title: "어시스트 순위", players: stats.players,
                                 value: { $0.assist },
                                 valueLabel: { "\($0.assist)A" },
-                                subLabel: { "\($0.goal)G" })
+                                subLabel: { "\($0.goal)G" },
+                                raw: vm.raw)
                             RankingSection(title: "출전 시간 순위", players: stats.players,
                                 value: { $0.min },
                                 valueLabel: { "\($0.min)'" },
                                 subLabel: { "\($0.games)경기 · \($0.goal)G \($0.assist)A" },
-                                emptyHint: playingTimeEmptyHint)
+                                emptyHint: playingTimeEmptyHint,
+                                raw: vm.raw)
                         } else if vm.isLoadingStats {
                             ProgressView().padding(.top, 40)
                         }
@@ -474,6 +480,8 @@ struct RankingSection: View {
     var emptyHint: String? = nil
     /// true면 스쿼드 전원(기록 0 포함)을 인라인으로 펼치고 '자세히 보기'를 숨긴다 (리포트 탭).
     var expanded: Bool = false
+    /// 선수 상세의 경기별 기록·부상 섹션용 원본. nil이면 해당 섹션은 표시하지 않는다.
+    var raw: TeamStatsRaw? = nil
     @State private var selectedPlayer: PlayerStats? = nil
     @State private var showAll = false
     @Environment(\.fsTheme) var t
@@ -526,14 +534,14 @@ struct RankingSection: View {
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(t.line, lineWidth: 0.5))
             .padding(.horizontal, 16)
             .sheet(item: $selectedPlayer) { player in
-                PlayerStatDetailView(player: player, allPlayers: players)
+                PlayerStatDetailView(player: player, allPlayers: players, raw: raw)
                     .environment(\.fsTheme, t)
             }
             .sheet(isPresented: $showAll) {
                 RankingAllSheet(
                     title: title, ranked: allRanked, maxVal: maxVal,
                     value: value, valueLabel: valueLabel, subLabel: subLabel,
-                    allPlayers: players
+                    allPlayers: players, raw: raw
                 )
                 .environment(\.fsTheme, t)
             }
@@ -563,6 +571,7 @@ struct RankingAllSheet: View {
     let valueLabel: (PlayerStats) -> String
     let subLabel: (PlayerStats) -> String
     let allPlayers: [PlayerStats]
+    var raw: TeamStatsRaw? = nil
     @State private var selectedPlayer: PlayerStats? = nil
     @Environment(\.fsTheme) var t
     @Environment(\.dismiss) var dismiss
@@ -617,7 +626,7 @@ struct RankingAllSheet: View {
         .presentationDetents([.large])
         .presentationDragIndicator(.hidden)
         .sheet(item: $selectedPlayer) { player in
-            PlayerStatDetailView(player: player, allPlayers: allPlayers)
+            PlayerStatDetailView(player: player, allPlayers: allPlayers, raw: raw)
                 .environment(\.fsTheme, t)
         }
     }

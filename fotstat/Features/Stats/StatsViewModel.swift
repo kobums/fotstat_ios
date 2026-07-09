@@ -5,6 +5,8 @@ import Combine
 final class StatsViewModel: ObservableObject {
     @Published var teams: [Team] = []
     @Published var teamStats: TeamStats?
+    /// 현재 기간 원본 — 선수 상세의 경기별 기록·부상 섹션용.
+    @Published var raw: TeamStatsRaw?
     @Published var isLoading = false
     @Published var isLoadingStats = false
     @Published var startDate: Date? = Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: Date()))
@@ -34,6 +36,8 @@ final class StatsViewModel: ObservableObject {
         guard let teamId = selectedTeamId else { return }
         isLoadingStats = true
         defer { isLoadingStats = false }
-        teamStats = await loadStats(teamId: teamId, from: startDate, to: endDate)
+        let cr = await loadStatsRaw(teamId: teamId, from: startDate, to: endDate)
+        raw = cr
+        teamStats = cr.map(computeTeamStats)
     }
 }
