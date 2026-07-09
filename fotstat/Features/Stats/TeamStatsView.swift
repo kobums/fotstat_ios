@@ -29,6 +29,8 @@ final class TeamStatsViewModel: ObservableObject {
     @Published var stats: TeamStats?
     /// 직전 동일 길이 기간의 통계 — "이전 기간 대비" 비교 타일용. 기간 미지정이면 nil.
     @Published var prevStats: TeamStats?
+    /// 현재 기간 원본 — 선수 상세의 경기별 기록·부상 섹션용.
+    @Published var raw: TeamStatsRaw?
     @Published var isLoading = false
 
     let team: Team
@@ -42,14 +44,18 @@ final class TeamStatsViewModel: ObservableObject {
         defer { isLoading = false }
         if let s = startDate, let e = endDate, let prev = Self.previousRange(start: s, end: e) {
             // 현재 기간도 이전 기간과 같은 일 단위 경계로 맞춘다 (시각이 남은 startDate로 인한 빈틈 방지)
-            async let current = loadStats(teamId: team.id, from: Calendar.current.startOfDay(for: s), to: e)
+            async let currentRaw = loadStatsRaw(teamId: team.id, from: Calendar.current.startOfDay(for: s), to: e)
             async let previous = loadStats(teamId: team.id, from: prev.start, to: prev.end)
-            stats = await current
+            let cr = await currentRaw
+            raw = cr
+            stats = cr.map(computeTeamStats)
             prevStats = await previous
         } else {
             // 기간 경계는 항상 일 단위로 정규화 — 리포트 탭(ReportViewModel)과 동일 규칙
             let start = startDate.map { Calendar.current.startOfDay(for: $0) }
-            stats = await loadStats(teamId: team.id, from: start, to: endDate)
+            let cr = await loadStatsRaw(teamId: team.id, from: start, to: endDate)
+            raw = cr
+            stats = cr.map(computeTeamStats)
             prevStats = nil
         }
     }
@@ -226,4 +232,79 @@ func computeTeamStats(_ raw: TeamStatsRaw) -> TeamStats {
     result.wins = wins; result.draws = draws; result.losses = losses
     result.totalConceded = conceded
     return result
+}
+
+// MARK: - 선수 상세: 경기별 기록
+
+/// 선수가 뛴 경기 하나의 기록 — 쿼터별(출전분/골/도움/카드)과 경기 합계·스코어.
+struct PlayerMatchLog: Identifiable {
+    struct QuarterLine: Identifiable {
+        let id: Int       // quarter id
+        let number: Int
+        let min: Int
+        let goal: Int
+        let assist: Int
+        let yellow: Int
+        let red: Int
+    }
+    let matchId: Int
+    let opponent: String
+    let matchdate: String
+    let home: Int         // 우리 팀 득점(경기 내 전 선수 골 합)
+    let away: Int         // 상대 득점(쿼터 awaygoals 합)
+    let quarters: [QuarterLine]
+    let min: Int
+    let goal: Int
+    let assist: Int
+    let yellow: Int
+    let red: Int
+    var id: Int { matchId }
+    var result: String { home > away ? "W" : (home < away ? "L" : "D") }
+    var resultLabel: String { home > away ? "승" : (home < away ? "패" : "무") }
+}
+
+/// 선수가 기록을 남긴 경기들의 경기별 로그(최신순). 웹 playerMatchLog.ts 미러.
+func playerMatchLogs(_ raw: TeamStatsRaw, playerId: Int) -> [PlayerMatchLog] {
+    let matchById = Dictionary(raw.finished.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+    let quarterById = Dictionary(raw.quarters.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+
+    var awayByMatch: [Int: Int] = [:]
+    for q in raw.quarters { awayByMatch[q.match, default: 0] += q.awaygoals }
+    var homeByMatch: [Int: Int] = [:]
+    for r in raw.records {
+        if let q = quarterById[r.quarter] { homeByMatch[q.match, default: 0] += r.goal }
+    }
+
+    var linesByMatch: [Int: [PlayerMatchLog.QuarterLine]] = [:]
+    for r in raw.records where r.player == playerId {
+        guard let q = quarterById[r.quarter] else { continue }
+        linesByMatch[q.match, default: []].append(
+            .init(id: q.id, number: q.number, min: r.min, goal: r.goal,
+                  assist: r.assist, yellow: r.yellowcard, red: r.redcard)
+        )
+    }
+
+    var logs: [PlayerMatchLog] = []
+    for (matchId, rawLines) in linesByMatch {
+        guard let m = matchById[matchId] else { continue }
+        let lines = rawLines.sorted { $0.number < $1.number }
+        logs.append(PlayerMatchLog(
+            matchId: matchId, opponent: m.awayname, matchdate: m.matchdate,
+            home: homeByMatch[matchId] ?? 0, away: awayByMatch[matchId] ?? 0,
+            quarters: lines,
+            min: lines.reduce(0) { $0 + $1.min },
+            goal: lines.reduce(0) { $0 + $1.goal },
+            assist: lines.reduce(0) { $0 + $1.assist },
+            yellow: lines.reduce(0) { $0 + $1.yellow },
+            red: lines.reduce(0) { $0 + $1.red }
+        ))
+    }
+    return logs.sorted { $0.matchdate > $1.matchdate }
+}
+
+/// 선수의 부상 이력(최신 발생순).
+func playerInjuries(_ raw: TeamStatsRaw, playerId: Int) -> [Injury] {
+    raw.injuries
+        .filter { $0.player == playerId }
+        .sorted { ($0.startdate ?? "") > ($1.startdate ?? "") }
 }

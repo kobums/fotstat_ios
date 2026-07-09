@@ -28,6 +28,8 @@ struct MatchReportItem: Identifiable {
 final class ReportViewModel: ObservableObject {
     @Published var stats: TeamStats?
     @Published var reports: [MatchReportItem] = []
+    /// 현재 기간 원본 — 선수 상세의 경기별 기록·부상 섹션용.
+    @Published var raw: TeamStatsRaw?
     @Published var isLoading = false
     @Published var isExporting = false
     @Published var exportError: String?
@@ -70,14 +72,16 @@ final class ReportViewModel: ObservableObject {
         isLoading = true
         defer { isLoading = false }
         let start = startDate.map { Calendar.current.startOfDay(for: $0) }
-        guard let raw = await loadStatsRaw(teamId: team.id, from: start, to: endDate) else {
+        guard let loaded = await loadStatsRaw(teamId: team.id, from: start, to: endDate) else {
+            raw = nil
             stats = nil
             reports = []
             return
         }
         // 한 번의 fan-out 결과로 요약·순위(computeTeamStats)와 경기별 카드 모두 생성
-        stats = computeTeamStats(raw)
-        reports = Self.buildReports(raw)
+        raw = loaded
+        stats = computeTeamStats(loaded)
+        reports = Self.buildReports(loaded)
     }
 
     /// 경기별 쿼터 결과. 홈 득점 = 쿼터별 record.goal 합, 원정 득점 = quarter.awaygoals.
@@ -324,7 +328,8 @@ struct ReportView: View {
                 value: { $0.goal },
                 valueLabel: { "\($0.goal)G" },
                 subLabel: { "+\($0.assist)A" },
-                expanded: expanded)
+                expanded: expanded,
+                raw: vm.raw)
         }
     }
 
@@ -335,7 +340,8 @@ struct ReportView: View {
                 value: { $0.min },
                 valueLabel: { "\($0.min)'" },
                 subLabel: { "\($0.games)경기 · \($0.goal)G \($0.assist)A" },
-                expanded: expanded)
+                expanded: expanded,
+                raw: vm.raw)
         }
     }
 }
