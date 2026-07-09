@@ -134,7 +134,7 @@ struct MatchListView: View {
                     } label: {
                         Label("경기 삭제", systemImage: "trash")
                     }
-                    .disabled(vm.deletingMatchIds.contains(match.id))
+                    .disabled(vm.deletingIds.contains(match.id))
                 }
                 if i < matches.count - 1 {
                     Divider().background(t.line)

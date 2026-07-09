@@ -7,11 +7,8 @@ extension Notification.Name {
 }
 
 @MainActor
-final class PlayerViewModel: ObservableObject {
+final class PlayerViewModel: LoadableViewModel {
     @Published var players: [Player] = []
-    @Published var isLoading = false
-    @Published var errorMessage: String?
-    @Published var deletingPlayerIds: Set<Int> = []
 
     let team: Team
 
@@ -20,62 +17,47 @@ final class PlayerViewModel: ObservableObject {
     }
 
     func fetchPlayers() async {
-        isLoading = true
-        errorMessage = nil
-        defer { isLoading = false }
-
-        do {
+        await withLoading {
             let resp = try await APIClient.shared.request(
-                .players(teamId: team.id),
+                .players(teamId: self.team.id),
                 responseType: ItemsResponse<Player>.self
             )
-            players = resp.items ?? []
-        } catch {
-            errorMessage = error.localizedDescription
+            self.players = resp.items ?? []
         }
     }
 
     func createPlayer(name: String, number: Int?, pos: String? = nil, birthdate: String? = nil) async {
-        do {
+        await mutate {
             _ = try await APIClient.shared.request(
-                .createPlayer(teamId: team.id, name: name, number: number ?? 0, position: pos, birthdate: birthdate),
+                .createPlayer(teamId: self.team.id, name: name, number: number ?? 0, position: pos, birthdate: birthdate),
                 responseType: CodeResponse.self
             )
-            await fetchPlayers()
-        } catch {
-            errorMessage = error.localizedDescription
+            await self.fetchPlayers()
         }
     }
 
     func updatePlayer(id: Int, name: String, number: Int?, pos: String? = nil, birthdate: String? = nil) async {
-        do {
+        await mutate {
             _ = try await APIClient.shared.request(
-                .updatePlayer(id: id, teamId: team.id, name: name, number: number ?? 0, position: pos, birthdate: birthdate),
+                .updatePlayer(id: id, teamId: self.team.id, name: name, number: number ?? 0, position: pos, birthdate: birthdate),
                 responseType: CodeResponse.self
             )
-            await fetchPlayers()
-        } catch {
-            errorMessage = error.localizedDescription
+            await self.fetchPlayers()
         }
     }
 
     func deletePlayer(id: Int) async {
-        guard !deletingPlayerIds.contains(id) else { return }
-        deletingPlayerIds.insert(id)
-        defer { deletingPlayerIds.remove(id) }
-        do {
+        await withDeleting(id) {
             _ = try await APIClient.shared.request(
                 .deletePlayer(id: id),
                 responseType: CodeResponse.self
             )
-            players.removeAll { $0.id == id }
+            self.players.removeAll { $0.id == id }
             NotificationCenter.default.post(
                 name: .playerDeleted,
                 object: nil,
                 userInfo: ["playerId": id]
             )
-        } catch {
-            errorMessage = error.localizedDescription
         }
     }
 }

@@ -166,7 +166,7 @@ struct MatchDetailView: View {
                                     } label: {
                                         Label("쿼터 삭제", systemImage: "trash")
                                     }
-                                    .disabled(vm.deletingQuarterIds.contains(summary.id))
+                                    .disabled(vm.deletingIds.contains(summary.id))
                                 }
                             }
                         }

@@ -71,7 +71,7 @@ struct HomeView: View {
                                         } label: {
                                             Label("팀 삭제", systemImage: "trash")
                                         }
-                                        .disabled(vm.deletingTeamIds.contains(team.id))
+                                        .disabled(vm.deletingIds.contains(team.id))
                                     }
                                 }
                             }

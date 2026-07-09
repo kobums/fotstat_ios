@@ -15,12 +15,9 @@ struct QuarterSummary: Identifiable {
 }
 
 @MainActor
-final class QuarterViewModel: ObservableObject {
+final class QuarterViewModel: LoadableViewModel {
     @Published var summaries: [QuarterSummary] = []
-    @Published var isLoading = false
     @Published var isDeleting = false
-    @Published var deletingQuarterIds: Set<Int> = []
-    @Published var errorMessage: String?
 
     let match: Match
 
@@ -70,14 +67,12 @@ final class QuarterViewModel: ObservableObject {
 
     func addNextQuarter(duration: Int) async {
         let nextNumber = (quarters.map(\.number).max() ?? 0) + 1
-        do {
+        await mutate {
             _ = try await APIClient.shared.request(
-                .createQuarter(matchId: match.id, number: nextNumber, duration: duration),
+                .createQuarter(matchId: self.match.id, number: nextNumber, duration: duration),
                 responseType: CodeResponse.self
             )
-            await fetchQuarters()
-        } catch {
-            errorMessage = error.localizedDescription
+            await self.fetchQuarters()
         }
     }
 
@@ -121,17 +116,12 @@ final class QuarterViewModel: ObservableObject {
     }
 
     func deleteQuarter(id: Int) async {
-        guard !deletingQuarterIds.contains(id) else { return }
-        deletingQuarterIds.insert(id)
-        defer { deletingQuarterIds.remove(id) }
-        do {
+        await withDeleting(id) {
             _ = try await APIClient.shared.request(
                 .deleteQuarter(id: id),
                 responseType: CodeResponse.self
             )
-            summaries.removeAll { $0.id == id }
-        } catch {
-            errorMessage = error.localizedDescription
+            self.summaries.removeAll { $0.id == id }
         }
     }
 }

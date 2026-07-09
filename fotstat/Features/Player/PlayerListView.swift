@@ -70,7 +70,7 @@ struct PlayerListView: View {
                                                     } label: {
                                                         Label("선수 삭제", systemImage: "trash")
                                                     }
-                                                    .disabled(vm.deletingPlayerIds.contains(player.id))
+                                                    .disabled(vm.deletingIds.contains(player.id))
                                                 }
                                             if i < players.count - 1 {
                                                 Divider().padding(.leading, 56).background(t.line)
