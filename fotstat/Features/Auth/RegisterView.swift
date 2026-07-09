@@ -45,17 +45,9 @@ struct RegisterView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
-                    Button { Task { await vm.register() } } label: {
-                        ZStack {
-                            if vm.isLoading { ProgressView().tint(.white) }
-                            else { Text("계정 만들기").font(.system(size: 16, weight: .bold)) }
-                        }
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity).frame(height: 52)
-                        .background(t.accent).cornerRadius(14)
-                        .shadow(color: t.accent.opacity(0.3), radius: 8, x: 0, y: 4)
+                    FSPrimaryButton(title: "계정 만들기", isLoading: vm.isLoading) {
+                        Task { await vm.register() }
                     }
-                    .disabled(vm.isLoading).padding(.top, 6)
                 }
 
                 Spacer()

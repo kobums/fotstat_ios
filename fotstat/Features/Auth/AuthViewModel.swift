@@ -11,6 +11,17 @@ final class AuthViewModel: ObservableObject {
 
     let appleCoordinator = AppleSignInCoordinator()
 
+    /// AuthResponse 처리 공통: 성공(code=="ok" + token + user)이면 세션을 저장하고 true,
+    /// 실패면 errorMessage 를 설정하고 false. login/apple/guest/upgrade 가 공유한다.
+    private func handleAuthResponse(_ response: AuthResponse, failMessage: String, isGuest: Bool = false) -> Bool {
+        guard response.code == "ok", let token = response.token, let user = response.user else {
+            errorMessage = response.message ?? failMessage
+            return false
+        }
+        AuthManager.shared.save(token: token, refresh: response.refresh, user: user, isGuest: isGuest)
+        return true
+    }
+
     func login() async {
         guard !email.isEmpty, !password.isEmpty else {
             errorMessage = "이메일과 비밀번호를 입력해주세요."
@@ -25,11 +36,7 @@ final class AuthViewModel: ObservableObject {
                 .login(email: email, passwd: password),
                 responseType: AuthResponse.self
             )
-            guard response.code == "ok", let token = response.token, let user = response.user else {
-                errorMessage = response.message ?? "로그인에 실패했습니다."
-                return
-            }
-            AuthManager.shared.save(token: token, refresh: response.refresh, user: user)
+            _ = handleAuthResponse(response, failMessage: "로그인에 실패했습니다.")
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -45,11 +52,7 @@ final class AuthViewModel: ObservableObject {
                 .appleLogin(identityToken: identityToken, authorizationCode: authorizationCode, name: name),
                 responseType: AuthResponse.self
             )
-            guard response.code == "ok", let token = response.token, let user = response.user else {
-                errorMessage = response.message ?? "Apple 로그인에 실패했습니다."
-                return
-            }
-            AuthManager.shared.save(token: token, refresh: response.refresh, user: user)
+            _ = handleAuthResponse(response, failMessage: "Apple 로그인에 실패했습니다.")
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -65,11 +68,7 @@ final class AuthViewModel: ObservableObject {
                 .guest(),
                 responseType: AuthResponse.self
             )
-            guard response.code == "ok", let token = response.token, let user = response.user else {
-                errorMessage = response.message ?? "게스트 시작에 실패했습니다."
-                return
-            }
-            AuthManager.shared.save(token: token, refresh: response.refresh, user: user, isGuest: true)
+            _ = handleAuthResponse(response, failMessage: "게스트 시작에 실패했습니다.", isGuest: true)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -91,12 +90,7 @@ final class AuthViewModel: ObservableObject {
                 .upgradeAccount(email: email, password: password, name: name),
                 responseType: AuthResponse.self
             )
-            guard response.code == "ok", let token = response.token, let user = response.user else {
-                errorMessage = response.message ?? "가입에 실패했습니다."
-                return false
-            }
-            AuthManager.shared.save(token: token, refresh: response.refresh, user: user, isGuest: false)
-            return true
+            return handleAuthResponse(response, failMessage: "가입에 실패했습니다.", isGuest: false)
         } catch {
             errorMessage = error.localizedDescription
             return false
