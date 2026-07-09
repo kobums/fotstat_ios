@@ -109,14 +109,7 @@ struct MatchListView: View {
         } message: { match in
             Text("'\(match.awayname)' 경기와 모든 쿼터·기록이 삭제됩니다. 이 작업은 되돌릴 수 없습니다.")
         }
-        .alert(
-            "오류",
-            isPresented: Binding(get: { vm.errorMessage != nil }, set: { if !$0 { vm.errorMessage = nil } })
-        ) {
-            Button("확인", role: .cancel) { vm.errorMessage = nil }
-        } message: {
-            Text(vm.errorMessage ?? "")
-        }
+        .errorAlert($vm.errorMessage)
     }
 
     // 경기 목록 카드 (예정/지난 공용)
@@ -141,9 +134,7 @@ struct MatchListView: View {
                 }
             }
         }
-        .background(t.bgElev)
-        .cornerRadius(12)
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(t.line, lineWidth: 0.5))
+        .fsCard()
         .padding(.horizontal, 16)
     }
 }

@@ -158,9 +158,7 @@ struct TeamHomeView: View {
                             }
                         }
                     }
-                    .background(t.bgElev)
-                    .cornerRadius(12)
-                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(t.line, lineWidth: 0.5))
+                    .fsCard()
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
                 }
@@ -182,9 +180,7 @@ struct TeamHomeView: View {
                             }
                         }
                     }
-                    .background(t.bgElev)
-                    .cornerRadius(12)
-                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(t.line, lineWidth: 0.5))
+                    .fsCard()
                     .padding(.horizontal, 16)
                 }
             }

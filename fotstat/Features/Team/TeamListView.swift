@@ -172,14 +172,7 @@ struct HomeView: View {
         } message: { team in
             Text("'\(team.name)' 팀과 소속 선수·경기·기록·부상 내역이 모두 삭제됩니다. 이 작업은 되돌릴 수 없습니다.")
         }
-        .alert(
-            "오류",
-            isPresented: Binding(get: { vm.errorMessage != nil }, set: { if !$0 { vm.errorMessage = nil } })
-        ) {
-            Button("확인", role: .cancel) { vm.errorMessage = nil }
-        } message: {
-            Text(vm.errorMessage ?? "")
-        }
+        .errorAlert($vm.errorMessage)
     }
 
     private var emptyView: some View {
@@ -211,8 +204,6 @@ struct TeamRow: View {
                 .foregroundColor(t.textTer)
         }
         .padding(.horizontal, 12).padding(.vertical, 10)
-        .background(t.bgElev)
-        .cornerRadius(12)
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(t.line, lineWidth: 0.5))
+        .fsCard()
     }
 }

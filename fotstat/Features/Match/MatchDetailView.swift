@@ -170,9 +170,7 @@ struct MatchDetailView: View {
                                 }
                             }
                         }
-                        .background(t.bgElev)
-                        .cornerRadius(12)
-                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(t.line, lineWidth: 0.5))
+                        .fsCard()
                         .padding(.horizontal, 16)
                     } else if !isFuture {
                         Text("쿼터를 추가하고 기록을 입력하세요")
@@ -255,14 +253,7 @@ struct MatchDetailView: View {
         } message: { summary in
             Text("Q\(summary.quarter.number) 쿼터와 해당 쿼터의 선수 기록이 모두 삭제됩니다. 이 작업은 되돌릴 수 없습니다.")
         }
-        .alert(
-            "오류",
-            isPresented: Binding(get: { vm.errorMessage != nil }, set: { if !$0 { vm.errorMessage = nil } })
-        ) {
-            Button("확인", role: .cancel) { vm.errorMessage = nil }
-        } message: {
-            Text(vm.errorMessage ?? "")
-        }
+        .errorAlert($vm.errorMessage)
     }
 }
 

@@ -215,9 +215,7 @@ struct PlayerStatDetailView: View {
         }
         .padding(.horizontal, 12).padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(t.bgElev)
-        .cornerRadius(12)
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(t.line, lineWidth: 0.5))
+        .fsCard()
     }
 
     private func injurySection(_ injuries: [Injury]) -> some View {
@@ -242,9 +240,7 @@ struct PlayerStatDetailView: View {
                     if i < injuries.count - 1 { Divider().background(t.line) }
                 }
             }
-            .background(t.bgElev)
-            .cornerRadius(12)
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(t.line, lineWidth: 0.5))
+            .fsCard()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)
@@ -288,9 +284,7 @@ struct PlayerStatDetailView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
-        .background(t.bgElev)
-        .cornerRadius(12)
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(t.line, lineWidth: 0.5))
+        .fsCard()
     }
 
     @ViewBuilder

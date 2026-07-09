@@ -383,9 +383,7 @@ struct PlayerCompareSection: View {
                 }
             }
         }
-        .background(t.bgElev)
-        .cornerRadius(12)
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(t.line, lineWidth: 0.5))
+        .fsCard()
         .padding(.horizontal, 16)
         // 선택했던 선수가 목록에서 사라지면 Picker 선택값도 함께 되돌린다 (invalid selection 경고 방지)
         .onChange(of: players.map(\.id)) { _, ids in
@@ -529,9 +527,7 @@ struct RankingSection: View {
                     }
                 }
             }
-            .background(t.bgElev)
-            .cornerRadius(12)
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(t.line, lineWidth: 0.5))
+            .fsCard()
             .padding(.horizontal, 16)
             .sheet(item: $selectedPlayer) { player in
                 PlayerStatDetailView(player: player, allPlayers: players, raw: raw)
@@ -553,9 +549,7 @@ struct RankingSection: View {
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 20)
-                .background(t.bgElev)
-                .cornerRadius(12)
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(t.line, lineWidth: 0.5))
+                .fsCard()
                 .padding(.horizontal, 16)
         }
     }
@@ -615,9 +609,7 @@ struct RankingAllSheet: View {
                         }
                     }
                 }
-                .background(t.bgElev)
-                .cornerRadius(12)
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(t.line, lineWidth: 0.5))
+                .fsCard()
                 .padding(.horizontal, 16)
                 .padding(.bottom, 24)
             }

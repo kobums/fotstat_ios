@@ -94,9 +94,7 @@ struct RecordView: View {
                         .padding(.leading, 14)
                     }
                     .padding(14)
-                    .background(t.bgElev)
-                    .cornerRadius(12)
-                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(t.line, lineWidth: 0.5))
+                    .fsCard()
                     .padding(.horizontal, 16)
                     .padding(.bottom, 10)
 
@@ -160,14 +158,7 @@ struct RecordView: View {
         .onReceive(NotificationCenter.default.publisher(for: .injuryChanged)) { _ in
             Task { await vm.refreshInjuries() }
         }
-        .alert(
-            "저장 실패",
-            isPresented: Binding(get: { vm.errorMessage != nil }, set: { if !$0 { vm.errorMessage = nil } })
-        ) {
-            Button("확인", role: .cancel) { vm.errorMessage = nil }
-        } message: {
-            Text(vm.errorMessage ?? "")
-        }
+        .errorAlert($vm.errorMessage, title: "저장 실패")
     }
 }
 

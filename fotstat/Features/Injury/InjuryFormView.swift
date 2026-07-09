@@ -79,14 +79,7 @@ struct InjuryFormView: View {
             }
             .navigationTitle(editingId == nil ? "부상 등록" : "부상 수정")
             .navigationBarTitleDisplayMode(.inline)
-            .alert(
-                "처리 실패",
-                isPresented: Binding(get: { vm.errorMessage != nil }, set: { if !$0 { vm.errorMessage = nil } })
-            ) {
-                Button("확인", role: .cancel) { vm.errorMessage = nil }
-            } message: {
-                Text(vm.errorMessage ?? "")
-            }
+            .errorAlert($vm.errorMessage, title: "처리 실패")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("취소") { dismiss() }

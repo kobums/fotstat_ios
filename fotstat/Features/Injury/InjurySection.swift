@@ -87,9 +87,7 @@ struct InjurySection: View {
                             }
                         }
                     }
-                    .background(t.bgElev)
-                    .cornerRadius(12)
-                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(t.line, lineWidth: 0.5))
+                    .fsCard()
                     .padding(.horizontal, 16)
                 }
 
@@ -120,17 +118,7 @@ struct InjurySection: View {
                 .environment(\.fsTheme, t)
         }
         // 시트가 열려 있을 땐 폼 쪽 alert가 처리하므로 여기서는 닫힌 상태의 실패(조회·복귀 처리)만 노출
-        .alert(
-            "오류",
-            isPresented: Binding(
-                get: { vm.errorMessage != nil && editing == nil },
-                set: { if !$0 { vm.errorMessage = nil } }
-            )
-        ) {
-            Button("확인", role: .cancel) { vm.errorMessage = nil }
-        } message: {
-            Text(vm.errorMessage ?? "")
-        }
+        .errorAlert($vm.errorMessage, enabled: editing == nil)
     }
 
     /// "지난 부상" 서브섹션 — 복귀가 끝난 이력을 최신순으로, 탭하면 수정.
@@ -191,9 +179,7 @@ struct InjurySection: View {
                 }
             }
         }
-        .background(t.bgElev)
-        .cornerRadius(12)
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(t.line, lineWidth: 0.5))
+        .fsCard()
         .padding(.horizontal, 16)
     }
 }

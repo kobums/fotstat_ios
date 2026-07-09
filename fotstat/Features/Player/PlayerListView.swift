@@ -77,9 +77,7 @@ struct PlayerListView: View {
                                             }
                                         }
                                     }
-                                    .background(t.bgElev)
-                                    .cornerRadius(12)
-                                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(t.line, lineWidth: 0.5))
+                                    .fsCard()
                                     .padding(.horizontal, 16)
                                 }
                             }
@@ -144,14 +142,7 @@ struct PlayerListView: View {
         } message: { player in
             Text("'\(player.name)' 선수와 해당 선수의 경기 기록·부상 내역이 모두 삭제됩니다. 이 작업은 되돌릴 수 없습니다.")
         }
-        .alert(
-            "오류",
-            isPresented: Binding(get: { vm.errorMessage != nil }, set: { if !$0 { vm.errorMessage = nil } })
-        ) {
-            Button("확인", role: .cancel) { vm.errorMessage = nil }
-        } message: {
-            Text(vm.errorMessage ?? "")
-        }
+        .errorAlert($vm.errorMessage)
     }
 }
 
