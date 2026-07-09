@@ -58,13 +58,6 @@ final class MatchViewModel: ObservableObject {
         self.team = team
     }
 
-    private static let dateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd HH:mm:ss"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        return f
-    }()
-
     // 진입/갱신 시 호출: 예정 전체 + 지난 1페이지
     func loadInitial() async {
         isLoading = true
@@ -78,7 +71,7 @@ final class MatchViewModel: ObservableObject {
         monthSections = []
         scoreTasks.forEach { $0.cancel() }   // 이전 로드의 백그라운드 점수 Task 정리
         scoreTasks.removeAll()
-        pastCutoff = Self.dateFormatter.string(from: Date())   // 페이지네이션 기준 시각 고정
+        pastCutoff = DateFormats.dateTime.string(from: Date())   // 페이지네이션 기준 시각 고정
 
         async let upcomingReq = APIClient.shared.request(
             .matchesUpcoming(teamId: team.id, after: pastCutoff),
@@ -226,7 +219,7 @@ final class MatchViewModel: ObservableObject {
     }
 
     func createMatch(awayName: String, matchDate: Date) async {
-        let dateStr = Self.dateFormatter.string(from: matchDate)
+        let dateStr = DateFormats.dateTime.string(from: matchDate)
 
         do {
             _ = try await APIClient.shared.request(

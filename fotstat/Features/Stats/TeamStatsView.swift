@@ -1,14 +1,6 @@
 import Foundation
 import Combine
 
-// 결장 경기 계산에서 오늘 날짜를 "yyyy-MM-dd" 로 만들 때 재사용.
-private let injuryDayFormatter: DateFormatter = {
-    let f = DateFormatter()
-    f.dateFormat = "yyyy-MM-dd"
-    f.locale = Locale(identifier: "en_US_POSIX")
-    return f
-}()
-
 // 통계·리포트 탭이 공유하는 조회 기간 — TeamContextView가 소유하고 두 탭에 주입한다.
 @MainActor
 final class StatsPeriod: ObservableObject {
@@ -188,12 +180,12 @@ func computeTeamStats(_ raw: TeamStatsRaw) -> TeamStats {
     }
 
     // 선수별 부상 기간 목록 (결장 경기 계산용). 날짜는 "yyyy-MM-dd" 문자열 비교.
-    let todayStr = injuryDayFormatter.string(from: Date())
+    let todayStr = Date.todayYMD
     var injuryPeriods: [Int: [(start: String, end: String)]] = [:]
     for injury in injuries {
-        let start = String((injury.startdate ?? "").prefix(10))
+        let start = (injury.startdate ?? "").dayPrefix
         guard !start.isEmpty else { continue }
-        let end = injury.isActive ? todayStr : String((injury.returndate ?? "").prefix(10))
+        let end = injury.isActive ? todayStr : (injury.returndate ?? "").dayPrefix
         guard !end.isEmpty else { continue }
         injuryPeriods[injury.player, default: []].append((start, end))
     }
@@ -201,7 +193,7 @@ func computeTeamStats(_ raw: TeamStatsRaw) -> TeamStats {
     func absentGames(for playerId: Int) -> Int {
         guard let periods = injuryPeriods[playerId] else { return 0 }
         return finished.filter { match in
-            let day = String(match.matchdate.prefix(10))
+            let day = match.matchdate.dayPrefix
             guard !day.isEmpty else { return false }
             // 발생일 당일 경기는 뛴 것으로 보고 결장에서 제외 (start < day)
             return periods.contains { $0.start < day && day <= $0.end }

@@ -18,14 +18,6 @@ struct PlayerFormView: View {
 
     private let positions = ["GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LW", "RW", "ST"]
 
-    // "yyyy-MM-dd" <-> Date 변환용 (생년월일은 날짜만 사용)
-    private static let birthdateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        return f
-    }()
-
     init(title: String, initialName: String = "", initialNumber: Int? = nil,
          initialPos: String? = nil, initialBirthdate: String? = nil,
          onSave: @escaping (String, Int?, String?, String?) -> Void) {
@@ -38,13 +30,13 @@ struct PlayerFormView: View {
         _name = State(initialValue: initialName)
         _numberText = State(initialValue: initialNumber.map { "\($0)" } ?? "")
         _pos = State(initialValue: initialPos)
-        let parsed = initialBirthdate.flatMap { PlayerFormView.birthdateFormatter.date(from: $0) }
+        let parsed = initialBirthdate.flatMap { DateFormats.day.date(from: $0) }
         _birthDate = State(initialValue: parsed ?? Calendar.current.date(from: DateComponents(year: 2000, month: 1, day: 1)) ?? Date())
         _hasBirthdate = State(initialValue: parsed != nil)
     }
 
     private var birthdateString: String? {
-        hasBirthdate ? PlayerFormView.birthdateFormatter.string(from: birthDate) : nil
+        hasBirthdate ? DateFormats.day.string(from: birthDate) : nil
     }
 
     var body: some View {

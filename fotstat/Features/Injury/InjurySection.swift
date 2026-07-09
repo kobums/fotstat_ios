@@ -26,7 +26,7 @@ struct InjurySection: View {
                     Spacer()
                     if !isReadOnly {
                         Button {
-                            editing = .new(playerId: vm.defaultNewInjuryPlayerId, startdate: Self.todayString())
+                            editing = .new(playerId: vm.defaultNewInjuryPlayerId, startdate: Date.todayYMD)
                         } label: {
                             Image(systemName: "plus")
                                 .font(.system(size: 13, weight: .bold))
@@ -52,7 +52,7 @@ struct InjurySection: View {
                                 name: vm.playerName(for: injury.player),
                                 number: vm.playerNumber(for: injury.player),
                                 type: injury.type,
-                                startdate: String((injury.startdate ?? "").prefix(10)),
+                                startdate: (injury.startdate ?? "").dayPrefix,
                                 absentGames: vm.absentGames(for: injury, matches: vm.matches)
                             )
                             if isReadOnly {
@@ -180,9 +180,9 @@ struct InjurySection: View {
                         name: vm.playerName(for: injury.player),
                         number: vm.playerNumber(for: injury.player),
                         type: injury.type,
-                        startdate: String((injury.startdate ?? "").prefix(10)),
+                        startdate: (injury.startdate ?? "").dayPrefix,
                         absentGames: vm.absentGames(for: injury, matches: vm.matches),
-                        returndate: String((injury.returndate ?? "").prefix(10))
+                        returndate: (injury.returndate ?? "").dayPrefix
                     )
                 }
                 .buttonStyle(.plain)
@@ -195,13 +195,6 @@ struct InjurySection: View {
         .cornerRadius(12)
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(t.line, lineWidth: 0.5))
         .padding(.horizontal, 16)
-    }
-
-    private static func todayString() -> String {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        return f.string(from: Date())
     }
 }
 

@@ -92,13 +92,13 @@ final class RecordViewModel: ObservableObject {
     // returndate 비면 아직 부상 중. 백엔드 injuryConflict와 동일 규칙.
     // 날짜는 "yyyy-MM-dd" 형태라 문자열 비교로 대소를 판단할 수 있다.
     static func injuredPlayers(injuries: [Injury], on matchdate: String) -> Set<Int> {
-        let day = String(matchdate.prefix(10))
+        let day = matchdate.dayPrefix
         guard !day.isEmpty else { return [] }
         var ids: Set<Int> = []
         for injury in injuries {
-            let start = String((injury.startdate ?? "").prefix(10))
+            let start = (injury.startdate ?? "").dayPrefix
             guard !start.isEmpty, start < day else { continue }
-            let end = String((injury.returndate ?? "").prefix(10))
+            let end = (injury.returndate ?? "").dayPrefix
             if end.isEmpty || day <= end {
                 ids.insert(injury.player)
             }

@@ -18,11 +18,8 @@ struct RecordView: View {
 
     // 부상 발생일 프리필 = 경기일. 폼의 DatePicker 범위(...오늘) 때문에 미래(예정) 경기는 오늘로 clamp
     private var injuryStartdate: String {
-        let matchDay = String(match.matchdate.prefix(10))
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        let today = f.string(from: Date())
+        let matchDay = match.matchdate.dayPrefix
+        let today = Date.todayYMD
         return matchDay.isEmpty ? today : min(matchDay, today)
     }
 

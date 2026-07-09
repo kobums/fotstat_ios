@@ -16,21 +16,14 @@ struct InjuryFormView: View {
 
     private let editingId: Int?
 
-    private static let df: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        return f
-    }()
-
     init(vm: InjuryViewModel, draft: InjuryDraft) {
         self.vm = vm
         self.editingId = draft.id
         _playerId = State(initialValue: draft.playerId)
         _type = State(initialValue: draft.type)
-        _startDate = State(initialValue: Self.df.date(from: draft.startdate) ?? Date())
+        _startDate = State(initialValue: DateFormats.day.date(from: draft.startdate) ?? Date())
         _hasReturned = State(initialValue: !draft.returndate.isEmpty)
-        _returnDate = State(initialValue: Self.df.date(from: draft.returndate) ?? Date())
+        _returnDate = State(initialValue: DateFormats.day.date(from: draft.returndate) ?? Date())
         _memo = State(initialValue: draft.memo)
     }
 
@@ -115,8 +108,8 @@ struct InjuryFormView: View {
             id: editingId,
             playerId: playerId,
             type: type,
-            startdate: Self.df.string(from: startDate),
-            returndate: hasReturned ? Self.df.string(from: returnDate) : "",
+            startdate: DateFormats.day.string(from: startDate),
+            returndate: hasReturned ? DateFormats.day.string(from: returnDate) : "",
             memo: memo
         )
         Task {

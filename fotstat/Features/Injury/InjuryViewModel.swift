@@ -87,22 +87,15 @@ final class InjuryViewModel: ObservableObject {
     /// 세지 않는다 — 결장 범위는 발생일 다음 날부터 복귀일(복귀 전이면 오늘)까지.
     /// 날짜는 "yyyy-MM-dd" 라 문자열 비교로 대소를 판단한다.
     func absentGames(for injury: Injury, matches: [Match]) -> Int {
-        let start = String((injury.startdate ?? "").prefix(10))
+        let start = (injury.startdate ?? "").dayPrefix
         guard !start.isEmpty else { return 0 }
-        let end = injury.isActive ? Self.today() : String((injury.returndate ?? "").prefix(10))
+        let end = injury.isActive ? Date.todayYMD : (injury.returndate ?? "").dayPrefix
         guard !end.isEmpty else { return 0 }
 
         return matches.filter { match in
-            let day = String(match.matchdate.prefix(10))
+            let day = match.matchdate.dayPrefix
             return !day.isEmpty && start < day && day <= end
         }.count
-    }
-
-    private static func today() -> String {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        return f.string(from: Date())
     }
 
     func save(_ draft: InjuryDraft) async -> Bool {
@@ -129,7 +122,7 @@ final class InjuryViewModel: ObservableObject {
     /// 날짜를 바꾸려면 항목을 눌러 수정하면 된다.
     func endInjury(_ injury: Injury) async -> Bool {
         var draft = InjuryDraft.from(injury)
-        draft.returndate = Self.today()
+        draft.returndate = Date.todayYMD
         return await save(draft)
     }
 
@@ -165,8 +158,8 @@ struct InjuryDraft {
             id: injury.id,
             playerId: injury.player,
             type: injury.type ?? "",
-            startdate: String((injury.startdate ?? "").prefix(10)),
-            returndate: String((injury.returndate ?? "").prefix(10)),
+            startdate: (injury.startdate ?? "").dayPrefix,
+            returndate: (injury.returndate ?? "").dayPrefix,
             memo: injury.memo ?? ""
         )
     }

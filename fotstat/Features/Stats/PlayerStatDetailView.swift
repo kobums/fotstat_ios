@@ -261,7 +261,7 @@ struct PlayerStatDetailView: View {
 
     /// "yyyy-MM-dd HH:mm:ss" 또는 "yyyy-MM-dd" → "MM.dd"
     private func shortDate(_ s: String) -> String {
-        let day = String(s.prefix(10))
+        let day = s.dayPrefix
         let comps = day.split(separator: "-")
         return comps.count == 3 ? "\(comps[1]).\(comps[2])" : day
     }

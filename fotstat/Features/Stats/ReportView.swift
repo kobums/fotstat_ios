@@ -45,8 +45,8 @@ final class ReportViewModel: ObservableObject {
     func exportMatchRecord(start: Date?, end: Date?) async -> URL? {
         isExporting = true
         defer { isExporting = false }
-        let startStr = start.map { Self.ymd.string(from: $0) }
-        let endStr = end.map { Self.ymd.string(from: $0) }
+        let startStr = start.map { DateFormats.day.string(from: $0) }
+        let endStr = end.map { DateFormats.day.string(from: $0) }
         do {
             let (data, filename) = try await APIClient.shared.download(
                 .matchRecordReport(teamId: team.id, start: startStr, end: endStr)
@@ -59,14 +59,6 @@ final class ReportViewModel: ObservableObject {
             return nil
         }
     }
-
-    // 백엔드 쿼리용 날짜(로컬 타임존 기준 yyyy-MM-dd) — 경기일 필터와 같은 캘린더 기준.
-    private static let ymd: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        return f
-    }()
 
     func fetch(start startDate: Date?, end endDate: Date?) async {
         isLoading = true

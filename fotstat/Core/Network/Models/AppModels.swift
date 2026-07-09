@@ -47,7 +47,7 @@ extension Player {
     /// 형식이 어긋나면 nil. (2월 29일생은 평년 달력에 해당 날짜가 없어 윤년에만 표시된다.)
     var birthMonthDay: (month: Int, day: Int)? {
         guard let birthdate, !birthdate.isEmpty else { return nil }
-        let parts = birthdate.prefix(10).split(separator: "-")
+        let parts = birthdate.dayPrefix.split(separator: "-")
         guard parts.count == 3,
               let month = Int(parts[1]), let day = Int(parts[2]),
               (1...12).contains(month), (1...31).contains(day) else { return nil }
@@ -57,7 +57,7 @@ extension Player {
     /// 생일 문자열에서 출생 연도 — 나이 표시용. 형식이 어긋나면 nil.
     var birthYear: Int? {
         guard let birthdate, !birthdate.isEmpty else { return nil }
-        let parts = birthdate.prefix(10).split(separator: "-")
+        let parts = birthdate.dayPrefix.split(separator: "-")
         guard parts.count == 3, let year = Int(parts[0]), year > 0 else { return nil }
         return year
     }
@@ -71,16 +71,8 @@ struct Match: Decodable, Identifiable, Hashable {
     let awayname: String
     let matchdate: String
 
-    // 매 호출마다 DateFormatter를 새로 만들지 않도록 static 캐시 (parsedDate는 렌더마다 빈번히 호출됨)
-    private static let dateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd HH:mm:ss"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        return f
-    }()
-
     var parsedDate: Date? {
-        Match.dateFormatter.date(from: matchdate)
+        DateFormats.dateTime.date(from: matchdate)
     }
 }
 
