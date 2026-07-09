@@ -101,6 +101,73 @@ final class APIClient {
         }
     }
 
+    /// Binary download (e.g. xlsx 리포트). request()와 같은 인증·401 재발급 로직을
+    /// 쓰되 JSON 디코딩 대신 원본 Data 와 서버가 준 파일명을 돌려준다.
+    /// 파일명은 Content-Disposition 의 filename*(UTF-8) 를 파싱해 웹과 동일하게 맞춘다.
+    func download(_ endpoint: Endpoint) async throws -> (data: Data, filename: String) {
+        try await download(endpoint, allowRetry: true)
+    }
+
+    private func download(
+        _ endpoint: Endpoint,
+        allowRetry: Bool
+    ) async throws -> (data: Data, filename: String) {
+        guard let url = URL(string: baseURL + endpoint.path) else {
+            throw APIError.invalidURL
+        }
+
+        var req = URLRequest(url: url)
+        req.httpMethod = endpoint.method.rawValue
+
+        let sentToken = endpoint.requiresAuth ? AuthManager.shared.token : nil
+        if let sentToken {
+            req.setValue("Bearer \(sentToken)", forHTTPHeaderField: "Authorization")
+        }
+
+        let (data, response) = try await URLSession.shared.data(for: req)
+
+        guard let http = response as? HTTPURLResponse else {
+            throw APIError.unknown(URLError(.badServerResponse))
+        }
+
+        switch http.statusCode {
+        case 200...299:
+            let filename = Self.filename(from: http) ?? "report.xlsx"
+            return (data, filename)
+        case 401:
+            if endpoint.requiresAuth, allowRetry, await renewSession(staleToken: sentToken) {
+                return try await download(endpoint, allowRetry: false)
+            }
+            await MainActor.run { AuthManager.shared.logout() }
+            throw APIError.unauthorized
+        default:
+            throw APIError.serverError(http.statusCode)
+        }
+    }
+
+    /// Content-Disposition 헤더에서 다운로드 파일명을 뽑는다.
+    /// `filename*=UTF-8''<percent-encoded>` 를 우선하고, 없으면 `filename="..."`.
+    private static func filename(from http: HTTPURLResponse) -> String? {
+        guard let disposition = http.value(forHTTPHeaderField: "Content-Disposition") else {
+            return nil
+        }
+        for part in disposition.components(separatedBy: ";") {
+            let token = part.trimmingCharacters(in: .whitespaces)
+            if let range = token.range(of: "filename*=UTF-8''") {
+                let encoded = String(token[range.upperBound...])
+                return encoded.removingPercentEncoding ?? encoded
+            }
+        }
+        for part in disposition.components(separatedBy: ";") {
+            let token = part.trimmingCharacters(in: .whitespaces)
+            if token.hasPrefix("filename=") {
+                let raw = String(token.dropFirst("filename=".count))
+                return raw.trimmingCharacters(in: CharacterSet(charactersIn: "\""))
+            }
+        }
+        return nil
+    }
+
     /// Renews the access token using the stored refresh token. Returns true if a
     /// valid session is now in place. Coalesced so concurrent 401s refresh once.
     private func renewSession(staleToken: String?) async -> Bool {
