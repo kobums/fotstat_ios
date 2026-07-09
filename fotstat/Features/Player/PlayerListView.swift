@@ -89,23 +89,7 @@ struct PlayerListView: View {
             }
 
             // FAB
-            VStack {
-                Spacer()
-                HStack {
-                    Spacer()
-                    Button { showAddPlayer = true } label: {
-                        Image(systemName: "plus")
-                            .font(.system(size: 22, weight: .bold))
-                            .foregroundColor(.white)
-                            .frame(width: 56, height: 56)
-                            .background(t.accent)
-                            .clipShape(Circle())
-                            .shadow(color: t.accent.opacity(0.4), radius: 12, x: 0, y: 6)
-                    }
-                    .padding(.trailing, 24)
-                    .padding(.bottom, 32)
-                }
-            }
+            FSFloatingActionButton { showAddPlayer = true }
         }
         .background(t.bg.ignoresSafeArea())
         .task { await vm.fetchPlayers() }
@@ -126,22 +110,12 @@ struct PlayerListView: View {
             }
             .environment(\.fsTheme, t)
         }
-        .confirmationDialog(
+        .deleteConfirmation(
             "선수 삭제",
-            isPresented: Binding(
-                get: { playerToDelete != nil },
-                set: { if !$0 { playerToDelete = nil } }
-            ),
-            titleVisibility: .visible,
-            presenting: playerToDelete
-        ) { player in
-            Button("삭제", role: .destructive) {
-                Task { await vm.deletePlayer(id: player.id) }
-            }
-            Button("취소", role: .cancel) {}
-        } message: { player in
-            Text("'\(player.name)' 선수와 해당 선수의 경기 기록·부상 내역이 모두 삭제됩니다. 이 작업은 되돌릴 수 없습니다.")
-        }
+            item: $playerToDelete,
+            message: { "'\($0.name)' 선수와 해당 선수의 경기 기록·부상 내역이 모두 삭제됩니다. 이 작업은 되돌릴 수 없습니다." },
+            onDelete: { player in Task { await vm.deletePlayer(id: player.id) } }
+        )
         .errorAlert($vm.errorMessage)
     }
 }

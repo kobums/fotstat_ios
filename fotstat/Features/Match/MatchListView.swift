@@ -62,23 +62,7 @@ struct MatchListView: View {
             }
 
             // FAB
-            VStack {
-                Spacer()
-                HStack {
-                    Spacer()
-                    Button { showAddMatch = true } label: {
-                        Image(systemName: "plus")
-                            .font(.system(size: 22, weight: .bold))
-                            .foregroundColor(.white)
-                            .frame(width: 56, height: 56)
-                            .background(t.accent)
-                            .clipShape(Circle())
-                            .shadow(color: t.accent.opacity(0.4), radius: 12, x: 0, y: 6)
-                    }
-                    .padding(.trailing, 24)
-                    .padding(.bottom, 32)
-                }
-            }
+            FSFloatingActionButton { showAddMatch = true }
         }
         .background(t.bg.ignoresSafeArea())
         .task { await vm.loadInitial() }
@@ -93,22 +77,12 @@ struct MatchListView: View {
                 vm.removeMatch(id: id)
             }
         }
-        .confirmationDialog(
+        .deleteConfirmation(
             "경기 삭제",
-            isPresented: Binding(
-                get: { matchToDelete != nil },
-                set: { if !$0 { matchToDelete = nil } }
-            ),
-            titleVisibility: .visible,
-            presenting: matchToDelete
-        ) { match in
-            Button("삭제", role: .destructive) {
-                Task { await vm.deleteMatch(id: match.id) }
-            }
-            Button("취소", role: .cancel) {}
-        } message: { match in
-            Text("'\(match.awayname)' 경기와 모든 쿼터·기록이 삭제됩니다. 이 작업은 되돌릴 수 없습니다.")
-        }
+            item: $matchToDelete,
+            message: { "'\($0.awayname)' 경기와 모든 쿼터·기록이 삭제됩니다. 이 작업은 되돌릴 수 없습니다." },
+            onDelete: { match in Task { await vm.deleteMatch(id: match.id) } }
+        )
         .errorAlert($vm.errorMessage)
     }
 

@@ -83,23 +83,7 @@ struct HomeView: View {
                 .ignoresSafeArea(edges: .top)
 
                 // FAB
-                VStack {
-                    Spacer()
-                    HStack {
-                        Spacer()
-                        Button { showAddTeam = true } label: {
-                            Image(systemName: "plus")
-                                .font(.system(size: 22, weight: .bold))
-                                .foregroundColor(.white)
-                                .frame(width: 56, height: 56)
-                                .background(t.accent)
-                                .clipShape(Circle())
-                                .shadow(color: t.accent.opacity(0.4), radius: 12, x: 0, y: 6)
-                        }
-                        .padding(.trailing, 24)
-                        .padding(.bottom, 32)
-                    }
-                }
+                FSFloatingActionButton { showAddTeam = true }
             }
             .navigationDestination(for: Team.self) { team in
                 TeamContextView(team: team)
@@ -156,22 +140,12 @@ struct HomeView: View {
         } message: { _ in
             Text("경기에 쿼터를 추가할 때 이 시간이 기본으로 표시됩니다. (1~120분)")
         }
-        .confirmationDialog(
+        .deleteConfirmation(
             "팀 삭제",
-            isPresented: Binding(
-                get: { teamToDelete != nil },
-                set: { if !$0 { teamToDelete = nil } }
-            ),
-            titleVisibility: .visible,
-            presenting: teamToDelete
-        ) { team in
-            Button("삭제", role: .destructive) {
-                Task { await vm.deleteTeam(id: team.id) }
-            }
-            Button("취소", role: .cancel) {}
-        } message: { team in
-            Text("'\(team.name)' 팀과 소속 선수·경기·기록·부상 내역이 모두 삭제됩니다. 이 작업은 되돌릴 수 없습니다.")
-        }
+            item: $teamToDelete,
+            message: { "'\($0.name)' 팀과 소속 선수·경기·기록·부상 내역이 모두 삭제됩니다. 이 작업은 되돌릴 수 없습니다." },
+            onDelete: { team in Task { await vm.deleteTeam(id: team.id) } }
+        )
         .errorAlert($vm.errorMessage)
     }
 
