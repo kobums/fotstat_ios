@@ -58,18 +58,12 @@ struct TeamHomeView: View {
     }
 
     private var upcomingMatch: Match? {
-        matchVM.matches
-            .filter { ($0.parsedDate ?? .distantPast) > Date() }
-            .sorted { ($0.parsedDate ?? .distantPast) < ($1.parsedDate ?? .distantPast) }
-            .first
+        matchVM.matches.upcoming().first
     }
 
     private var recentFinished: [Match] {
         Array(
-            matchVM.matches
-                .filter { ($0.parsedDate ?? .distantPast) <= Date() }
-                .sorted { ($0.parsedDate ?? .distantPast) > ($1.parsedDate ?? .distantPast) }
-                .prefix(5)
+            matchVM.matches.past().prefix(5)
         )
     }
 
@@ -224,8 +218,8 @@ private struct TeamSummaryCard: View {
     @Environment(\.fsTheme) var t
 
     private var totalCount: Int { matches.count }
-    private var upcomingCount: Int { matches.filter { ($0.parsedDate ?? .distantPast) > Date() }.count }
-    private var finishedCount: Int { matches.filter { ($0.parsedDate ?? .distantPast) <= Date() }.count }
+    private var upcomingCount: Int { matches.filter { $0.isUpcoming }.count }
+    private var finishedCount: Int { matches.filter { !$0.isUpcoming }.count }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -328,7 +322,7 @@ struct UpcomingMatchCard: View {
     }
 
     private var isFuture: Bool {
-        (match.parsedDate ?? .distantPast) > Date()
+        match.isUpcoming
     }
 
     var body: some View {

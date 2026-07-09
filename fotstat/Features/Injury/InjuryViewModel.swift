@@ -75,27 +75,15 @@ final class InjuryViewModel: ObservableObject {
         }
     }
 
-    func playerName(for playerId: Int) -> String {
-        players.first(where: { $0.id == playerId })?.name ?? "알 수 없음"
-    }
+    func playerName(for playerId: Int) -> String { players.name(for: playerId) }
 
-    func playerNumber(for playerId: Int) -> Int? {
-        players.first(where: { $0.id == playerId })?.number
-    }
+    func playerNumber(for playerId: Int) -> Int? { players.number(for: playerId) }
 
     /// 부상 기간에 걸친 팀 경기 수 = 결장 경기. 발생일 당일 경기는 뛴 것으로 보고
     /// 세지 않는다 — 결장 범위는 발생일 다음 날부터 복귀일(복귀 전이면 오늘)까지.
     /// 날짜는 "yyyy-MM-dd" 라 문자열 비교로 대소를 판단한다.
     func absentGames(for injury: Injury, matches: [Match]) -> Int {
-        let start = (injury.startdate ?? "").dayPrefix
-        guard !start.isEmpty else { return 0 }
-        let end = injury.isActive ? Date.todayYMD : (injury.returndate ?? "").dayPrefix
-        guard !end.isEmpty else { return 0 }
-
-        return matches.filter { match in
-            let day = match.matchdate.dayPrefix
-            return !day.isEmpty && start < day && day <= end
-        }.count
+        InjuryRules.absentGames(for: injury, matches: matches)
     }
 
     func save(_ draft: InjuryDraft) async -> Bool {

@@ -63,6 +63,18 @@ extension Player {
     }
 }
 
+extension Sequence where Element == Player {
+    /// id로 선수 이름 조회. 없으면 "알 수 없음".
+    func name(for id: Int) -> String {
+        first(where: { $0.id == id })?.name ?? "알 수 없음"
+    }
+
+    /// id로 선수 등번호 조회. 없으면 nil.
+    func number(for id: Int) -> Int? {
+        first(where: { $0.id == id })?.number
+    }
+}
+
 // MARK: - Match
 
 struct Match: Decodable, Identifiable, Hashable {
@@ -73,6 +85,23 @@ struct Match: Decodable, Identifiable, Hashable {
 
     var parsedDate: Date? {
         DateFormats.dateTime.date(from: matchdate)
+    }
+
+    /// 예정 경기 여부 (경기 시각이 현재보다 미래). parsedDate 실패 시 과거로 간주.
+    var isUpcoming: Bool { (parsedDate ?? .distantPast) > Date() }
+}
+
+extension Sequence where Element == Match {
+    /// 예정 경기만, 경기일 오름차순.
+    func upcoming() -> [Match] {
+        filter { $0.isUpcoming }
+            .sorted { ($0.parsedDate ?? .distantPast) < ($1.parsedDate ?? .distantPast) }
+    }
+
+    /// 지난 경기만, 경기일 내림차순.
+    func past() -> [Match] {
+        filter { !$0.isUpcoming }
+            .sorted { ($0.parsedDate ?? .distantPast) > ($1.parsedDate ?? .distantPast) }
     }
 }
 

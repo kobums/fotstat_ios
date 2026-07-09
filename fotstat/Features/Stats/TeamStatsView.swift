@@ -174,9 +174,11 @@ func computeTeamStats(_ raw: TeamStatsRaw) -> TeamStats {
         let home = matchHomeGoals[match.id] ?? 0
         let away = allQuarters.filter { $0.match == match.id }.reduce(0) { $0 + $1.awaygoals }
         conceded += away
-        if home > away { wins += 1 }
-        else if home == away { draws += 1 }
-        else { losses += 1 }
+        switch MatchOutcome(home: home, away: away) {
+        case .win: wins += 1
+        case .draw: draws += 1
+        case .loss: losses += 1
+        }
     }
 
     // 선수별 부상 기간 목록 (결장 경기 계산용). 날짜는 "yyyy-MM-dd" 문자열 비교.
@@ -194,9 +196,10 @@ func computeTeamStats(_ raw: TeamStatsRaw) -> TeamStats {
         guard let periods = injuryPeriods[playerId] else { return 0 }
         return finished.filter { match in
             let day = match.matchdate.dayPrefix
-            guard !day.isEmpty else { return false }
-            // 발생일 당일 경기는 뛴 것으로 보고 결장에서 제외 (start < day)
-            return periods.contains { $0.start < day && day <= $0.end }
+            // 발생일 당일 경기는 뛴 것으로 보고 결장에서 제외 (InjuryRules.spellCovers)
+            return periods.contains {
+                InjuryRules.spellCovers(day: day, start: $0.start, end: $0.end)
+            }
         }.count
     }
 
@@ -251,8 +254,8 @@ struct PlayerMatchLog: Identifiable {
     let yellow: Int
     let red: Int
     var id: Int { matchId }
-    var result: String { home > away ? "W" : (home < away ? "L" : "D") }
-    var resultLabel: String { home > away ? "승" : (home < away ? "패" : "무") }
+    var result: String { MatchOutcome(home: home, away: away).code }
+    var resultLabel: String { MatchOutcome(home: home, away: away).label }
 }
 
 /// 선수가 기록을 남긴 경기들의 경기별 로그(최신순). 웹 playerMatchLog.ts 미러.

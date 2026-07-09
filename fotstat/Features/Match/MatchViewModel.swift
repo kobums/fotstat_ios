@@ -13,19 +13,8 @@ struct MatchScore: Equatable {
     let home: Int
     let away: Int
 
-    var result: String {   // "W"/"D"/"L"
-        if home > away { return "W" }
-        if home < away { return "L" }
-        return "D"
-    }
-
-    var resultLabel: String {   // "승"/"무"/"패"
-        switch result {
-        case "W": return "승"
-        case "L": return "패"
-        default:  return "무"
-        }
-    }
+    var result: String { MatchOutcome(home: home, away: away).code }   // "W"/"D"/"L"
+    var resultLabel: String { MatchOutcome(home: home, away: away).label }   // "승"/"무"/"패"
 }
 
 @MainActor

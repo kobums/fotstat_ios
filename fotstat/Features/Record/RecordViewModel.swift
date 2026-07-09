@@ -87,23 +87,9 @@ final class RecordViewModel: ObservableObject {
         }
     }
 
-    // 경기일이 부상 기간에 걸치는 선수 id 집합. 발생일 당일 경기는 제외한다
-    // (경기 중 부상 = 그날까지는 뛴 것) — 차단 범위는 발생일 다음 날부터 복귀일까지,
-    // returndate 비면 아직 부상 중. 백엔드 injuryConflict와 동일 규칙.
-    // 날짜는 "yyyy-MM-dd" 형태라 문자열 비교로 대소를 판단할 수 있다.
+    // 경기일이 부상 기간에 걸치는 선수 id 집합 — 규칙은 InjuryRules(백엔드 injuryConflict와 동일).
     static func injuredPlayers(injuries: [Injury], on matchdate: String) -> Set<Int> {
-        let day = matchdate.dayPrefix
-        guard !day.isEmpty else { return [] }
-        var ids: Set<Int> = []
-        for injury in injuries {
-            let start = (injury.startdate ?? "").dayPrefix
-            guard !start.isEmpty, start < day else { continue }
-            let end = (injury.returndate ?? "").dayPrefix
-            if end.isEmpty || day <= end {
-                ids.insert(injury.player)
-            }
-        }
-        return ids
+        InjuryRules.injuredPlayerIds(injuries: injuries, on: matchdate)
     }
 
     // 서버 records를 drafts에 반영. playerId 기준이라 서버에 같은 선수 record가 중복돼도 마지막 것만 집계(방어)
@@ -256,11 +242,7 @@ final class RecordViewModel: ObservableObject {
         }
     }
 
-    func playerName(for playerId: Int) -> String {
-        players.first(where: { $0.id == playerId })?.name ?? "알 수 없음"
-    }
+    func playerName(for playerId: Int) -> String { players.name(for: playerId) }
 
-    func playerNumber(for playerId: Int) -> Int? {
-        players.first(where: { $0.id == playerId })?.number
-    }
+    func playerNumber(for playerId: Int) -> Int? { players.number(for: playerId) }
 }
