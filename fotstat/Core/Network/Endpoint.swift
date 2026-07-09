@@ -252,3 +252,16 @@ extension Endpoint {
         Endpoint(path: "/matches/\(matchId)/stats", method: .GET)
     }
 }
+
+// MARK: - Report (xlsx 다운로드)
+
+extension Endpoint {
+    /// 경기기록표 xlsx. 집계·서식은 백엔드가 담당(웹과 동일 파일).
+    /// start/end 는 "yyyy-MM-dd"(inclusive), 비우면 전체 기간.
+    static func matchRecordReport(teamId: Int, start: String?, end: String?) -> Endpoint {
+        var path = "/report/matchrecord?team=\(teamId)"
+        if let start, !start.isEmpty { path += "&start=\(start)" }
+        if let end, !end.isEmpty { path += "&end=\(end)" }
+        return Endpoint(path: path, method: .GET)
+    }
+}

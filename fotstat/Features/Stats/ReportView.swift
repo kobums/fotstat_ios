@@ -29,12 +29,42 @@ final class ReportViewModel: ObservableObject {
     @Published var stats: TeamStats?
     @Published var reports: [MatchReportItem] = []
     @Published var isLoading = false
+    @Published var isExporting = false
+    @Published var exportError: String?
 
     let team: Team
 
     init(team: Team) {
         self.team = team
     }
+
+    /// 조회 기간의 경기기록표 xlsx 를 백엔드에서 받아 임시 파일로 저장하고 그 URL 을 돌려준다.
+    /// 실패 시 exportError 를 세팅하고 nil.
+    func exportMatchRecord(start: Date?, end: Date?) async -> URL? {
+        isExporting = true
+        defer { isExporting = false }
+        let startStr = start.map { Self.ymd.string(from: $0) }
+        let endStr = end.map { Self.ymd.string(from: $0) }
+        do {
+            let (data, filename) = try await APIClient.shared.download(
+                .matchRecordReport(teamId: team.id, start: startStr, end: endStr)
+            )
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+            try data.write(to: url, options: .atomic)
+            return url
+        } catch {
+            exportError = (error as? LocalizedError)?.errorDescription ?? "다운로드에 실패했습니다."
+            return nil
+        }
+    }
+
+    // 백엔드 쿼리용 날짜(로컬 타임존 기준 yyyy-MM-dd) — 경기일 필터와 같은 캘린더 기준.
+    private static let ymd: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
 
     func fetch(start startDate: Date?, end endDate: Date?) async {
         isLoading = true
@@ -96,6 +126,9 @@ struct ReportView: View {
     /// 세로에서도 regular라 방향 구분이 안 되므로 실제 폭으로 판단한다.
     private static let wideLayoutMinWidth: CGFloat = 1100
 
+    /// 공유 시트에 넘길 다운로드 파일 URL (nil 이면 시트 닫힘).
+    @State private var shareURL: ShareURL?
+
     init(team: Team, period: StatsPeriod) {
         self.team = team
         self.period = period
@@ -115,9 +148,14 @@ struct ReportView: View {
 
                 // 재조회는 아래 onChange(period.key) 한 곳에서 처리 (초기화처럼
                 // 두 날짜가 함께 바뀌어도 한 번만 fan-out)
-                DateRangeFilter(startDate: $period.startDate, endDate: $period.endDate) {}
-                    .padding(.horizontal, 16)
-                    .padding(.top, 14)
+                // 날짜 선택 row 오른쪽 끝에 다운로드 버튼. DateRangeFilter가
+                // maxWidth:.infinity로 가운데 정렬이라 버튼은 자연히 우측 끝에 놓인다.
+                HStack(spacing: 8) {
+                    DateRangeFilter(startDate: $period.startDate, endDate: $period.endDate) {}
+                    exportButton
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
 
                 if vm.isLoading {
                     ProgressView().padding(.top, 40)
@@ -167,6 +205,17 @@ struct ReportView: View {
             .padding(.bottom, 10)
         }
         .background(t.bg.ignoresSafeArea())
+        .sheet(item: $shareURL) { item in
+            ActivityView(items: [item.url])
+        }
+        .alert("다운로드 실패", isPresented: Binding(
+            get: { vm.exportError != nil },
+            set: { if !$0 { vm.exportError = nil } }
+        )) {
+            Button("확인", role: .cancel) { vm.exportError = nil }
+        } message: {
+            Text(vm.exportError ?? "")
+        }
         .task { await refetch() }
         // 통계 탭에서 기간을 바꿔도 이 탭이 함께 갱신된다 (공유 StatsPeriod)
         .onChange(of: period.key) { _, _ in
@@ -185,6 +234,36 @@ struct ReportView: View {
 
     private func refetch() async {
         await vm.fetch(start: period.startDate, end: period.endDate)
+    }
+
+    // 날짜 row 우측 끝 컴팩트 아이콘 버튼. 경기기록표 xlsx 다운로드 →
+    // 시스템 공유 시트(파일 저장·공유). 집계 경기가 없으면 비활성.
+    private var exportButton: some View {
+        let hasData = (vm.stats?.matchCount ?? 0) > 0
+        return Button {
+            Task {
+                if let url = await vm.exportMatchRecord(start: period.startDate, end: period.endDate) {
+                    shareURL = ShareURL(url: url)
+                }
+            }
+        } label: {
+            Group {
+                if vm.isExporting {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Image(systemName: "square.and.arrow.down")
+                        .font(.system(size: 12, weight: .bold))
+                }
+            }
+            .foregroundColor(hasData ? t.text : t.textTer)
+            .frame(width: 30, height: 30)
+            .background(t.bgElev3)
+            .clipShape(Circle())
+            .overlay(Circle().stroke(t.line, lineWidth: 0.5))
+        }
+        .buttonStyle(.plain)
+        .disabled(!hasData || vm.isExporting)
+        .accessibilityLabel("경기기록표 다운로드")
     }
 
     // 웹 리포트 상단과 동일: 골(n경기) · 도움 · 승률(W D L)
@@ -363,4 +442,23 @@ private struct MatchReportCard: View {
         }
         .frame(maxWidth: .infinity)
     }
+}
+
+// MARK: - 공유 시트 (UIActivityViewController)
+
+/// .sheet(item:) 에 쓰기 위한 Identifiable 래퍼.
+private struct ShareURL: Identifiable {
+    let url: URL
+    var id: String { url.absoluteString }
+}
+
+/// 시스템 공유 시트로 파일(xlsx)을 저장·공유한다.
+private struct ActivityView: UIViewControllerRepresentable {
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }
