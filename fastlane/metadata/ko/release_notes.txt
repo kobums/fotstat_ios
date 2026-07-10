@@ -1,1 +1,1 @@
-- add match record xlsx download and share sheet
+- add per-match log and injury history to player detail with iPad two-column layout
