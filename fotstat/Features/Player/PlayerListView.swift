@@ -3,6 +3,7 @@ import SwiftUI
 struct PlayerListView: View {
     @StateObject private var vm: PlayerViewModel
     @StateObject private var injuryVM: InjuryViewModel
+    @StateObject private var inbodyVM: InbodyViewModel
     @State private var showAddPlayer = false
     @State private var editingPlayer: Player?
     @State private var playerToDelete: Player?
@@ -11,6 +12,7 @@ struct PlayerListView: View {
     init(team: Team) {
         _vm = StateObject(wrappedValue: PlayerViewModel(team: team))
         _injuryVM = StateObject(wrappedValue: InjuryViewModel(team: team))
+        _inbodyVM = StateObject(wrappedValue: InbodyViewModel(team: team))
     }
 
     // 포지션 그룹
@@ -34,6 +36,9 @@ struct PlayerListView: View {
 
                     // 부상자 명단 — 등록·수정·복귀 처리는 이 탭에서 담당 (홈은 표시 전용)
                     InjurySection(vm: injuryVM)
+
+                    // 인바디 — 시트형 일괄 입력 + 선수별 이력·추이
+                    InbodySection(vm: inbodyVM)
 
                     if vm.isLoading {
                         ProgressView().padding(.top, 80)
@@ -94,9 +99,11 @@ struct PlayerListView: View {
         .background(t.bg.ignoresSafeArea())
         .task { await vm.fetchPlayers() }
         .task { await injuryVM.fetch() }
+        .task { await inbodyVM.fetch() }
         .onReceive(NotificationCenter.default.publisher(for: .playerDeleted)) { _ in
-            // 선수 삭제 시 부상 내역도 CASCADE 삭제되므로 부상 섹션 재조회
+            // 선수 삭제 시 부상·인바디 내역도 CASCADE 삭제되므로 두 섹션 재조회
             Task { await injuryVM.fetch() }
+            Task { await inbodyVM.fetch() }
         }
         .sheet(isPresented: $showAddPlayer) {
             PlayerFormView(title: "선수 추가") { name, number, pos, birthdate in
