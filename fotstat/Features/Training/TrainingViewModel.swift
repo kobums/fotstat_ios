@@ -99,7 +99,11 @@ final class TrainingViewModel: ObservableObject {
             } else {
                 endpoint = .createTraining(teamId: team.id, trainingdate: dateStr)
             }
-            _ = try await APIClient.shared.request(endpoint, responseType: CodeResponse.self)
+            let resp = try await APIClient.shared.request(endpoint, responseType: CodeResponse.self)
+            if let msg = resp.failureMessage {
+                errorMessage = msg
+                return false
+            }
             await fetch()
             return true
         } catch {
@@ -111,7 +115,11 @@ final class TrainingViewModel: ObservableObject {
     /// 성공 여부 반환 — 실패 시 폼을 닫지 않고 에러를 노출해야 한다.
     func delete(id: Int) async -> Bool {
         do {
-            _ = try await APIClient.shared.request(.deleteTraining(id: id), responseType: CodeResponse.self)
+            let resp = try await APIClient.shared.request(.deleteTraining(id: id), responseType: CodeResponse.self)
+            if let msg = resp.failureMessage {
+                errorMessage = msg
+                return false
+            }
             await fetch()
             return true
         } catch {
@@ -128,17 +136,29 @@ final class TrainingViewModel: ObservableObject {
         deletes: [Int]
     ) async -> Bool {
         do {
+            // 백엔드는 부상 충돌·권한 거부를 HTTP 200 + code:"error"로 내려주므로
+            // 응답 code까지 검사해야 "저장된 척 닫히는" 실패를 막을 수 있다
             if !upserts.isEmpty {
-                _ = try await APIClient.shared.request(
+                let resp = try await APIClient.shared.request(
                     .upsertAttendances(trainingId: trainingId, entries: upserts),
                     responseType: CodeResponse.self
                 )
+                if let msg = resp.failureMessage {
+                    await fetch()
+                    errorMessage = msg
+                    return false
+                }
             }
             if !deletes.isEmpty {
-                _ = try await APIClient.shared.request(
+                let resp = try await APIClient.shared.request(
                     .deleteAttendances(ids: deletes),
                     responseType: CodeResponse.self
                 )
+                if let msg = resp.failureMessage {
+                    await fetch()
+                    errorMessage = msg
+                    return false
+                }
             }
             await fetch()
             return true
