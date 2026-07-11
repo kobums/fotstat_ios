@@ -125,9 +125,13 @@ struct ReportView: View {
     /// 공유 시트에 넘길 다운로드 파일 URL (nil 이면 시트 닫힘).
     @State private var shareURL: ShareURL?
 
-    init(team: Team, period: StatsPeriod) {
+    /// 통계 탭에서 시트로 열릴 때의 닫기 액션 — 헤더 왼쪽 back 버튼으로 노출된다.
+    private let onClose: (() -> Void)?
+
+    init(team: Team, period: StatsPeriod, onClose: (() -> Void)? = nil) {
         self.team = team
         self.period = period
+        self.onClose = onClose
         _vm = StateObject(wrappedValue: ReportViewModel(team: team))
     }
 
@@ -140,7 +144,7 @@ struct ReportView: View {
     private func reportBody(isWide: Bool) -> some View {
         ScrollView {
             VStack(spacing: 0) {
-                FSTeamHeader(team: team, tab: .stats)
+                FSTeamHeader(team: team, tab: .stats, onBack: onClose)
 
                 // 재조회는 아래 onChange(period.key) 한 곳에서 처리 (초기화처럼
                 // 두 날짜가 함께 바뀌어도 한 번만 fan-out)

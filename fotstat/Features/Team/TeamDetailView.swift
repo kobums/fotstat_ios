@@ -23,12 +23,13 @@ struct TeamContextView: View {
                 MatchListView(team: team)
                     .toolbar(.hidden, for: .navigationBar)
             }
-            Tab("통계", systemImage: "chart.bar.fill") {
-                TeamStatsContentView(team: team, period: statsPeriod)
+            Tab("훈련", systemImage: "figure.run") {
+                TrainingListView(team: team)
                     .toolbar(.hidden, for: .navigationBar)
             }
-            Tab("리포트", systemImage: "doc.text.fill") {
-                ReportView(team: team, period: statsPeriod)
+            // 리포트는 통계 탭 내부 진입으로 이동 — 탭 6개가 되면 iOS가 '더보기'로 접기 때문
+            Tab("통계", systemImage: "chart.bar.fill") {
+                TeamStatsContentView(team: team, period: statsPeriod)
                     .toolbar(.hidden, for: .navigationBar)
             }
         }
