@@ -142,6 +142,30 @@ struct Injury: Decodable, Identifiable, Hashable {
     var isActive: Bool { (returndate ?? "").isEmpty }
 }
 
+// MARK: - Training
+
+struct Training: Decodable, Identifiable, Hashable {
+    let id: Int
+    let team: Int
+    /// "yyyy-MM-dd HH:mm:ss"
+    let trainingdate: String
+
+    var parsedDate: Date? {
+        DateFormats.dateTime.date(from: trainingdate)
+    }
+
+    /// 예정 훈련 여부 (훈련 시각이 현재보다 미래). parsedDate 실패 시 과거로 간주.
+    var isUpcoming: Bool { (parsedDate ?? .distantPast) > Date() }
+}
+
+/// 훈련 참석 — 행 존재 = 참석, 체크 해제 = 행 삭제. min은 선수별 훈련 시간(분).
+struct Attendance: Decodable, Identifiable, Hashable {
+    let id: Int
+    let training: Int
+    let player: Int
+    let min: Int
+}
+
 // MARK: - Stats (not yet implemented in backend)
 
 struct TeamStats: Decodable {
@@ -189,6 +213,26 @@ struct ItemResponse<T: Decodable>: Decodable {
 
 struct CodeResponse: Decodable {
     let code: String
+    /// 백엔드 c.Error()가 내려주는 사유 (권한 등).
+    let message: String?
+    /// 백엔드가 도메인 오류를 "error" 키로 내려주는 경우 (부상 충돌 등).
+    /// 문자열이 아닌 형태로 올 수도 있어 관대하게 디코딩한다.
+    let error: String?
+
+    /// 백엔드는 도메인 오류(부상 충돌·권한 등)를 HTTP 200 + code:"error"로
+    /// 내려주므로 상태 코드만으로는 실패를 알 수 없다. 실패면 사유를 반환.
+    var failureMessage: String? {
+        code == "ok" ? nil : (error ?? message ?? "요청이 거부되었습니다.")
+    }
+
+    private enum CodingKeys: String, CodingKey { case code, message, error }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        code = try container.decode(String.self, forKey: .code)
+        message = try? container.decodeIfPresent(String.self, forKey: .message)
+        error = try? container.decodeIfPresent(String.self, forKey: .error)
+    }
 }
 
 typealias MessageResponse = CodeResponse

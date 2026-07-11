@@ -13,6 +13,10 @@ struct TeamStatsContentView: View {
     // iPad(세로·가로 모두 regular)는 순위 3종을 가로 나란히 + 전체 펼침,
     // iPhone(compact)은 세로 스택 + top3 + 자세히 보기.
     @Environment(\.horizontalSizeClass) private var hSize
+    /// 리포트(경기기록표)는 별도 탭이 아니라 여기서 전체 화면으로 연다 — 탭 6개가 되면
+    /// iOS가 '더보기'로 접기 때문에 훈련 탭을 넣으며 리포트를 통계 탭 안으로 옮겼다.
+    @State private var showReport = false
+    @Environment(\.fsSelectTeam) private var selectTeam
 
     init(team: Team, period: StatsPeriod) {
         self.team = team
@@ -30,10 +34,27 @@ struct TeamStatsContentView: View {
                 VStack(spacing: 0) {
                     FSTeamHeader(team: team, tab: .stats)
 
-                    // 날짜 필터 — 재조회는 onChange(period.key) 한 곳에서 처리
-                    DateRangeFilter(startDate: $period.startDate, endDate: $period.endDate) {}
-                        .padding(.horizontal, 16)
-                        .padding(.top, 14)
+                    // 날짜 필터 — 재조회는 onChange(period.key) 한 곳에서 처리.
+                    // 오른쪽 끝은 리포트(경기기록표) 진입 버튼.
+                    HStack(spacing: 8) {
+                        DateRangeFilter(startDate: $period.startDate, endDate: $period.endDate) {}
+                        Button { showReport = true } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "doc.text.fill")
+                                    .font(.system(size: 12, weight: .semibold))
+                                Text("리포트")
+                                    .font(.system(size: 12, weight: .bold))
+                            }
+                            .foregroundColor(t.accent)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 8)
+                            .background(t.bgElev3)
+                            .cornerRadius(8)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 14)
 
                     if vm.isLoading {
                         ProgressView().padding(.top, 40)
@@ -84,8 +105,18 @@ struct TeamStatsContentView: View {
             }
         }
         .background(t.bg.ignoresSafeArea())
+        .fullScreenCover(isPresented: $showReport) {
+            ReportView(team: team, period: period, onClose: { showReport = false })
+                .environment(\.fsTheme, t)
+                // 헤더의 팀 전환이 cover 아래의 TeamContextView를 먼저 dismiss하면
+                // 모달만 남는 비정상 상태가 되므로, cover를 닫은 뒤 팀 전환을 실행한다
+                .environment(\.fsSelectTeam, {
+                    showReport = false
+                    selectTeam?()
+                })
+        }
         .task { await refetch() }
-        // 리포트 탭에서 기간을 바꿔도 이 탭이 함께 갱신된다 (공유 StatsPeriod)
+        // 리포트에서 기간을 바꿔도 이 탭이 함께 갱신된다 (공유 StatsPeriod)
         .onChange(of: period.key) { _, _ in
             Task { await refetch() }
         }
