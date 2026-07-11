@@ -1,6 +1,11 @@
 import Foundation
 import Combine
 
+extension Notification.Name {
+    /// 훈련·참석 변경 시 홈 달력 등 다른 탭 화면이 재조회하도록 알림
+    static let trainingChanged = Notification.Name("fotstat.trainingChanged")
+}
+
 @MainActor
 final class TrainingViewModel: ObservableObject {
     @Published var trainings: [Training] = []
@@ -105,6 +110,7 @@ final class TrainingViewModel: ObservableObject {
                 return false
             }
             await fetch()
+            NotificationCenter.default.post(name: .trainingChanged, object: nil)
             return true
         } catch {
             errorMessage = error.localizedDescription
@@ -121,6 +127,7 @@ final class TrainingViewModel: ObservableObject {
                 return false
             }
             await fetch()
+            NotificationCenter.default.post(name: .trainingChanged, object: nil)
             return true
         } catch {
             errorMessage = error.localizedDescription
@@ -161,6 +168,10 @@ final class TrainingViewModel: ObservableObject {
                 }
             }
             await fetch()
+            // 실제로 변경 요청을 보낸 경우에만 다른 화면 재조회를 유발한다
+            if !upserts.isEmpty || !deletes.isEmpty {
+                NotificationCenter.default.post(name: .trainingChanged, object: nil)
+            }
             return true
         } catch {
             let message = error.localizedDescription
