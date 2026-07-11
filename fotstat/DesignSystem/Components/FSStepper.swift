@@ -12,7 +12,13 @@ struct FSStepper: View {
 
     private var btnSize: CGFloat { small ? 26 : 32 }
     private var fontSize: CGFloat { small ? 14 : 16 }
-    private var valueWidth: CGFloat { small ? 18 : 24 }
+    // suffix("분" 등)가 붙으면 값 영역을 넓혀야 텍스트가 버튼 위로 넘치지 않는다.
+    // suffix 사용처(훈련 시간)는 값이 3자리(300)까지 가므로 자릿수 여유분도 포함.
+    private var valueWidth: CGFloat {
+        let base: CGFloat = small ? 18 : 24
+        let suffixExtra: CGFloat = suffix.isEmpty ? 0 : CGFloat(suffix.count) * fontSize + 18
+        return base + suffixExtra
+    }
     private let gap: CGFloat = 2
     // 콘텐츠 합과 정확히 일치하는 폭 → 압축으로 버튼이 값 위로 겹치는 현상 방지
     private var totalWidth: CGFloat { btnSize * 2 + valueWidth + gap * 2 }

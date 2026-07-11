@@ -49,6 +49,7 @@ struct TeamHomeView: View {
     let team: Team
     @StateObject private var matchVM: MatchViewModel
     @StateObject private var injuryVM: InjuryViewModel
+    @StateObject private var trainingVM: TrainingViewModel   // 달력 훈련 마커 + 선택 날짜 훈련 표시용
     @Environment(\.fsTheme) var t
     @State private var selectedDate: Date? = nil
 
@@ -56,6 +57,7 @@ struct TeamHomeView: View {
         self.team = team
         _matchVM = StateObject(wrappedValue: MatchViewModel(team: team))
         _injuryVM = StateObject(wrappedValue: InjuryViewModel(team: team))
+        _trainingVM = StateObject(wrappedValue: TrainingViewModel(team: team))
     }
 
     private var upcomingMatch: Match? {
@@ -74,6 +76,17 @@ struct TeamHomeView: View {
             guard let d = $0.parsedDate else { return false }
             return Calendar.current.isDate(d, inSameDayAs: date)
         }
+    }
+
+    /// 선택한 날짜의 훈련 세션들 (시간순).
+    private var selectedDateTrainings: [Training] {
+        guard let date = selectedDate else { return [] }
+        return trainingVM.trainings
+            .filter {
+                guard let d = $0.parsedDate else { return false }
+                return Calendar.current.isDate(d, inSameDayAs: date)
+            }
+            .sorted { $0.trainingdate < $1.trainingdate }
     }
 
     /// 선택한 날짜가 생일(월·일 일치, 매년 반복)인 선수 목록.
@@ -105,16 +118,17 @@ struct TeamHomeView: View {
 
                 TeamSummaryCard(team: team, matches: matchVM.matches, recentMatches: recentFinished, matchScores: matchVM.matchScores)
                 
-                // 달력 (경기일 + 선수 생일 마커)
-                FSCalendarView(matches: matchVM.matches, players: injuryVM.players, selectedDate: $selectedDate)
+                // 달력 (경기일 + 훈련일 + 선수 생일 마커)
+                FSCalendarView(matches: matchVM.matches, trainings: trainingVM.trainings, players: injuryVM.players, selectedDate: $selectedDate)
                     .padding(.top, 8)
 
-                // 경기
+                // 경기 · 훈련
                 let displayedMatch = selectedDate != nil ? selectedDateMatch : upcomingMatch
+                let dayTrainings = selectedDateTrainings
                 let sectionTitle: String = {
                     guard let d = selectedDate else { return "다음 경기" }
                     let f = DateFormatter()
-                    f.dateFormat = "M월 d일 경기"
+                    f.dateFormat = "M월 d일 일정"
                     f.locale = Locale(identifier: "ko_KR")
                     return f.string(from: d)
                 }()
@@ -126,11 +140,13 @@ struct TeamHomeView: View {
                     .buttonStyle(.plain)
                     .padding(.horizontal, 16)
                 } else if selectedDate != nil {
-                    Text("해당 날짜에 경기가 없습니다")
-                        .font(.system(size: 13))
-                        .foregroundColor(t.textSec)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
+                    if dayTrainings.isEmpty {
+                        Text("해당 날짜에 일정이 없습니다")
+                            .font(.system(size: 13))
+                            .foregroundColor(t.textSec)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                    }
                 } else if matchVM.isLoading {
                     ProgressView().frame(maxWidth: .infinity).padding(.vertical, 20)
                 } else {
@@ -139,6 +155,25 @@ struct TeamHomeView: View {
                         .foregroundColor(t.textSec)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
+                }
+
+                // 선택한 날짜의 훈련 (경기와 같은 날이면 경기 카드 아래에 함께 표시)
+                if !dayTrainings.isEmpty {
+                    VStack(spacing: 0) {
+                        ForEach(Array(dayTrainings.enumerated()), id: \.element.id) { i, training in
+                            HomeTrainingRow(
+                                training: training,
+                                attendedCount: trainingVM.attendances(for: training.id).count,
+                                playerCount: trainingVM.players.count
+                            )
+                            if i < dayTrainings.count - 1 {
+                                Divider().background(t.line)
+                            }
+                        }
+                    }
+                    .fsCard()
+                    .padding(.horizontal, 16)
+                    .padding(.top, displayedMatch != nil ? 8 : 0)
                 }
 
                 // 선택한 날짜의 선수 생일
@@ -190,6 +225,7 @@ struct TeamHomeView: View {
         .background(t.bg.ignoresSafeArea())
         .task { await matchVM.fetchMatches() }
         .task { await injuryVM.fetch() }
+        .task { await trainingVM.fetch() }
         .onReceive(NotificationCenter.default.publisher(for: .matchDeleted)) { note in
             if let id = note.userInfo?["matchId"] as? Int {
                 matchVM.removeMatch(id: id)
@@ -202,6 +238,53 @@ struct TeamHomeView: View {
             // 선수단 탭에서 부상을 등록·수정하면 홈 섹션 즉시 갱신
             Task { await injuryVM.fetch() }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .trainingChanged)) { _ in
+            // 훈련 탭에서 훈련·참석을 바꾸면 홈 달력 마커·훈련 카드 즉시 갱신
+            Task { await trainingVM.fetch() }
+        }
+    }
+}
+
+// MARK: - HomeTrainingRow (홈 달력에서 선택한 날짜의 훈련)
+
+private struct HomeTrainingRow: View {
+    let training: Training
+    let attendedCount: Int
+    let playerCount: Int
+    @Environment(\.fsTheme) var t
+
+    private var timeString: String {
+        guard let d = training.parsedDate else { return "" }
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        return f.string(from: d)
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "figure.run")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(t.pos)
+                .frame(width: 32, height: 32)
+                .background(t.pos.opacity(0.13))
+                .clipShape(Circle())
+
+            HStack(spacing: 6) {
+                Text("훈련")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(t.text)
+                Text(timeString)
+                    .font(.system(size: 12, design: .rounded))
+                    .foregroundColor(t.textSec)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Text("참석 \(attendedCount)/\(playerCount)명")
+                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .foregroundColor(t.textSec)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
     }
 }
 
@@ -422,6 +505,7 @@ struct FSTeamHeader: View {
 
 private struct FSCalendarView: View {
     let matches: [Match]
+    var trainings: [Training] = []
     let players: [Player]
     @Binding var selectedDate: Date?
     @Environment(\.fsTheme) var t
@@ -433,6 +517,13 @@ private struct FSCalendarView: View {
 
     private func hasMatch(on date: Date) -> Bool {
         matches.contains {
+            guard let d = $0.parsedDate else { return false }
+            return cal.isDate(d, inSameDayAs: date)
+        }
+    }
+
+    private func hasTraining(on date: Date) -> Bool {
+        trainings.contains {
             guard let d = $0.parsedDate else { return false }
             return cal.isDate(d, inSameDayAs: date)
         }
@@ -513,6 +604,7 @@ private struct FSCalendarView: View {
                         let isSelected = selectedDate.map { cal.isDate($0, inSameDayAs: date) } ?? false
                         let isToday = cal.isDateInToday(date)
                         let hasMatchDay = hasMatch(on: date)
+                        let hasTrainingDay = hasTraining(on: date)
                         let hasBirthdayDay = hasBirthday(on: date, keys: bdayKeys)
                         let day = cal.component(.day, from: date)
 
@@ -535,10 +627,13 @@ private struct FSCalendarView: View {
                                     )
                                     .clipShape(Circle())
 
-                                // 경기일 점(accent) + 생일 점(yellow) — 둘 다 없으면 자리만 유지
+                                // 경기일 점(accent) + 훈련일 점(pos) + 생일 점(yellow) — 없으면 자리만 유지
                                 HStack(spacing: 3) {
                                     if hasMatchDay {
                                         Circle().fill(t.accent).frame(width: 4, height: 4)
+                                    }
+                                    if hasTrainingDay {
+                                        Circle().fill(t.pos).frame(width: 4, height: 4)
                                     }
                                     if hasBirthdayDay {
                                         Circle().fill(t.yellow).frame(width: 4, height: 4)
