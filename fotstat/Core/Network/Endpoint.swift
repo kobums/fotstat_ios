@@ -242,6 +242,45 @@ extension Endpoint {
     }
 }
 
+// MARK: - Inbody
+
+extension Endpoint {
+    /// 팀 전체 인바디 측정 이력 — 선수별 그룹핑·최신값은 클라이언트에서 계산한다.
+    static func inbodies(teamId: Int) -> Endpoint {
+        Endpoint(path: "/inbody?team=\(teamId)", method: .GET)
+    }
+
+    private static func inbodyBody(playerId: Int, testdate: String, height: Double, weight: Double, muscle: Double, fat: Double, rightleg: Double, leftleg: Double, score: Int) -> [String: Any] {
+        // 0 값도 그대로 전송한다 — 서버가 0 을 NULL(미측정)로 저장한다
+        [
+            "player": playerId, "testdate": testdate,
+            "height": height, "weight": weight, "muscle": muscle, "fat": fat,
+            "rightleg": rightleg, "leftleg": leftleg, "score": score
+        ]
+    }
+
+    /// (player, testdate)는 UNIQUE — 같은 검사일 재저장은 upsert 로 값만 갱신된다.
+    static func createInbody(playerId: Int, testdate: String, height: Double, weight: Double, muscle: Double, fat: Double, rightleg: Double, leftleg: Double, score: Int) -> Endpoint {
+        Endpoint(path: "/inbody", method: .POST,
+                 body: inbodyBody(playerId: playerId, testdate: testdate, height: height, weight: weight, muscle: muscle, fat: fat, rightleg: rightleg, leftleg: leftleg, score: score))
+    }
+
+    static func updateInbody(id: Int, playerId: Int, testdate: String, height: Double, weight: Double, muscle: Double, fat: Double, rightleg: Double, leftleg: Double, score: Int) -> Endpoint {
+        var body = inbodyBody(playerId: playerId, testdate: testdate, height: height, weight: weight, muscle: muscle, fat: fat, rightleg: rightleg, leftleg: leftleg, score: score)
+        body["id"] = id
+        return Endpoint(path: "/inbody", method: .PUT, body: body)
+    }
+
+    static func deleteInbody(id: Int) -> Endpoint {
+        Endpoint(path: "/inbody", method: .DELETE, body: ["id": id])
+    }
+
+    /// 시트 일괄 입력 — 행 단위 upsert.
+    static func saveInbodyBatch(entries: [[String: Any]]) -> Endpoint {
+        Endpoint(path: "/inbody/batch", method: .POST, arrayBody: entries)
+    }
+}
+
 // MARK: - Training
 
 extension Endpoint {

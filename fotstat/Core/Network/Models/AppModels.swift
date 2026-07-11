@@ -142,6 +142,24 @@ struct Injury: Decodable, Identifiable, Hashable {
     var isActive: Bool { (returndate ?? "").isEmpty }
 }
 
+// MARK: - Inbody
+
+/// 선수 인바디(체성분) 측정 1건. 검사일 외 측정치는 전부 선택 —
+/// 서버가 NULL 을 0 으로 내려주므로 0 = 미측정으로 취급한다.
+struct Inbody: Decodable, Identifiable, Hashable {
+    let id: Int
+    let player: Int
+    /// "yyyy-MM-dd"
+    let testdate: String
+    let height: Double
+    let weight: Double
+    let muscle: Double
+    let fat: Double
+    let rightleg: Double
+    let leftleg: Double
+    let score: Int
+}
+
 // MARK: - Training
 
 struct Training: Decodable, Identifiable, Hashable {
