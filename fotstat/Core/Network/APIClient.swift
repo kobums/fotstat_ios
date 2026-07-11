@@ -69,7 +69,9 @@ final class APIClient {
             req.setValue("Bearer \(sentToken)", forHTTPHeaderField: "Authorization")
         }
 
-        if let body = endpoint.body {
+        if let arrayBody = endpoint.arrayBody {
+            req.httpBody = try JSONSerialization.data(withJSONObject: arrayBody)
+        } else if let body = endpoint.body {
             req.httpBody = try JSONSerialization.data(withJSONObject: body)
         }
 

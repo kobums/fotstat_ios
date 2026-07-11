@@ -8,6 +8,9 @@ struct Endpoint {
     let path: String
     let method: HTTPMethod
     var body: [String: Any]? = nil
+    /// batch 엔드포인트(insertbatch/deletebatch)용 JSON 배열 본문.
+    /// 설정되면 body 대신 이 배열이 직렬화된다.
+    var arrayBody: [[String: Any]]? = nil
     /// Whether this call carries the user session. Public auth endpoints
     /// (login, register, guest, refresh) set this false so the client neither
     /// attaches a stale token nor tries to auto-refresh on a 401.
@@ -236,6 +239,51 @@ extension Endpoint {
 
     static func deleteInjury(id: Int) -> Endpoint {
         Endpoint(path: "/injury", method: .DELETE, body: ["id": id])
+    }
+}
+
+// MARK: - Training
+
+extension Endpoint {
+    /// 팀 전체 훈련 세션 목록.
+    static func trainings(teamId: Int) -> Endpoint {
+        Endpoint(path: "/training?team=\(teamId)", method: .GET)
+    }
+
+    static func createTraining(teamId: Int, trainingdate: String) -> Endpoint {
+        Endpoint(path: "/training", method: .POST, body: [
+            "team": teamId, "trainingdate": trainingdate
+        ])
+    }
+
+    static func updateTraining(id: Int, teamId: Int, trainingdate: String) -> Endpoint {
+        Endpoint(path: "/training", method: .PUT, body: [
+            "id": id, "team": teamId, "trainingdate": trainingdate
+        ])
+    }
+
+    static func deleteTraining(id: Int) -> Endpoint {
+        Endpoint(path: "/training", method: .DELETE, body: ["id": id])
+    }
+}
+
+// MARK: - Attendance
+
+extension Endpoint {
+    /// 팀 전체 참석 목록 — 세션별 그룹핑·선수별 집계는 클라이언트에서 한다.
+    static func attendances(teamId: Int) -> Endpoint {
+        Endpoint(path: "/attendance?team=\(teamId)", method: .GET)
+    }
+
+    /// (training, player)는 UNIQUE — 서버가 upsert 하므로 재전송 시 min만 갱신된다.
+    static func upsertAttendances(trainingId: Int, entries: [(player: Int, min: Int)]) -> Endpoint {
+        Endpoint(path: "/attendance/batch", method: .POST, arrayBody: entries.map {
+            ["training": trainingId, "player": $0.player, "min": $0.min]
+        })
+    }
+
+    static func deleteAttendances(ids: [Int]) -> Endpoint {
+        Endpoint(path: "/attendance/batch", method: .DELETE, arrayBody: ids.map { ["id": $0] })
     }
 }
 

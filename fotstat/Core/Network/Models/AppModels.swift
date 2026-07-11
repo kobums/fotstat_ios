@@ -142,6 +142,30 @@ struct Injury: Decodable, Identifiable, Hashable {
     var isActive: Bool { (returndate ?? "").isEmpty }
 }
 
+// MARK: - Training
+
+struct Training: Decodable, Identifiable, Hashable {
+    let id: Int
+    let team: Int
+    /// "yyyy-MM-dd HH:mm:ss"
+    let trainingdate: String
+
+    var parsedDate: Date? {
+        DateFormats.dateTime.date(from: trainingdate)
+    }
+
+    /// 예정 훈련 여부 (훈련 시각이 현재보다 미래). parsedDate 실패 시 과거로 간주.
+    var isUpcoming: Bool { (parsedDate ?? .distantPast) > Date() }
+}
+
+/// 훈련 참석 — 행 존재 = 참석, 체크 해제 = 행 삭제. min은 선수별 훈련 시간(분).
+struct Attendance: Decodable, Identifiable, Hashable {
+    let id: Int
+    let training: Int
+    let player: Int
+    let min: Int
+}
+
 // MARK: - Stats (not yet implemented in backend)
 
 struct TeamStats: Decodable {
