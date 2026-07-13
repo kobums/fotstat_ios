@@ -1,1 +1,4 @@
-- add per-match log and injury history to player detail with iPad two-column layout
+- 홈 훈련·부상 바로 진입 + 저장 스피너 + iPad 순위 이름 잘림 수정
+- 홈 캘린더 훈련 표시 + FSStepper suffix 겹침 수정
+- 인바디 측정 이력 — 선수단 탭 시트 입력·선수별 추이 차트
+- 훈련 탭 추가 — 세션·참석 체크·선수별 집계 (리포트는 통계 탭 내부로)
