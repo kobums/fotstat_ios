@@ -49,12 +49,7 @@ struct InbodySheetFormView: View {
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(t.text)
                     Spacer()
-                    Button { save() } label: {
-                        Text("저장")
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundColor(isSaving ? t.textSec : t.accent)
-                    }
-                    .disabled(isSaving)
+                    FSSaveButton(isSaving: isSaving) { save() }
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 20)
@@ -119,6 +114,7 @@ struct InbodySheetFormView: View {
             Text("검사일을 바꾸면 입력 중인 값이 사라집니다. 계속할까요?")
         }
         .errorAlert($vm.errorMessage)
+        .interactiveDismissDisabled(isSaving)
     }
 
     /// 검사일을 바꾸고 해당 날짜의 기존 값으로 시트를 다시 채운다 (입력 중 값은 버려짐).

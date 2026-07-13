@@ -34,12 +34,7 @@ struct TrainingFormView: View {
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(t.text)
                     Spacer()
-                    Button { save() } label: {
-                        Text("저장")
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundColor(isSaving ? t.textSec : t.accent)
-                    }
-                    .disabled(isSaving)
+                    FSSaveButton(isSaving: isSaving) { save() }
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 20)
@@ -86,6 +81,7 @@ struct TrainingFormView: View {
             Text("이 훈련과 참석 기록이 모두 삭제됩니다. 이 작업은 되돌릴 수 없습니다.")
         }
         .errorAlert($vm.errorMessage)
+        .interactiveDismissDisabled(isSaving)
     }
 
     private func save() {

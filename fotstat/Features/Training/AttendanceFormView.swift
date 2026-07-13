@@ -65,12 +65,7 @@ struct AttendanceFormView: View {
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(t.text)
                     Spacer()
-                    Button { save() } label: {
-                        Text("저장")
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundColor(isSaving ? t.textSec : t.accent)
-                    }
-                    .disabled(isSaving)
+                    FSSaveButton(isSaving: isSaving) { save() }
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 20)
@@ -104,6 +99,7 @@ struct AttendanceFormView: View {
             }
         }
         .errorAlert($vm.errorMessage)
+        .interactiveDismissDisabled(isSaving)
     }
 
     @ViewBuilder
