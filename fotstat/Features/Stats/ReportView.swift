@@ -309,9 +309,14 @@ struct ReportView: View {
     // 웹 리포트 오른쪽 컬럼과 동일). 컬럼 폭 720(반쪽 360)이면 이름(4자)+
     // 풀 서브라벨(5경기 · 0G 0A)이 함께 들어간다.
     private var rankingsSideBySide: some View {
-        HStack(alignment: .top, spacing: 0) {
-            VStack(spacing: 0) { goalRanking(expanded: true) }
-                .frame(maxWidth: .infinity, alignment: .top)
+        // 득점 기록이 없으면 섹션이 아예 안 그려지므로 컬럼에서도 제외 —
+        // 빈 컬럼이 폭만 차지해 출전 시간 순위가 눌리는 문제 방지 (통계 탭과 동일)
+        let hasGoal = vm.stats?.players.contains(where: { $0.goal > 0 }) ?? false
+        return HStack(alignment: .top, spacing: 0) {
+            if hasGoal {
+                VStack(spacing: 0) { goalRanking(expanded: true) }
+                    .frame(maxWidth: .infinity, alignment: .top)
+            }
             VStack(spacing: 0) { minRanking(expanded: true) }
                 .frame(maxWidth: .infinity, alignment: .top)
         }
