@@ -52,6 +52,7 @@ struct TeamHomeView: View {
     @StateObject private var trainingVM: TrainingViewModel   // 달력 훈련 마커 + 선택 날짜 훈련 표시용
     @Environment(\.fsTheme) var t
     @State private var selectedDate: Date? = nil
+    @State private var checkingTraining: Training? = nil
 
     init(team: Team) {
         self.team = team
@@ -161,11 +162,16 @@ struct TeamHomeView: View {
                 if !dayTrainings.isEmpty {
                     VStack(spacing: 0) {
                         ForEach(Array(dayTrainings.enumerated()), id: \.element.id) { i, training in
-                            HomeTrainingRow(
-                                training: training,
-                                attendedCount: trainingVM.attendances(for: training.id).count,
-                                playerCount: trainingVM.players.count
-                            )
+                            Button {
+                                checkingTraining = training
+                            } label: {
+                                HomeTrainingRow(
+                                    training: training,
+                                    attendedCount: trainingVM.attendances(for: training.id).count,
+                                    playerCount: trainingVM.players.count
+                                )
+                            }
+                            .buttonStyle(.plain)
                             if i < dayTrainings.count - 1 {
                                 Divider().background(t.line)
                             }
@@ -223,6 +229,11 @@ struct TeamHomeView: View {
             .padding(.bottom, 10)
         }
         .background(t.bg.ignoresSafeArea())
+        .sheet(item: $checkingTraining) { training in
+            // 훈련 탭과 동일한 참석 체크 시트 — 홈에서 해당 훈련으로 바로 진입
+            AttendanceFormView(vm: trainingVM, training: training)
+                .environment(\.fsTheme, t)
+        }
         .task { await matchVM.fetchMatches() }
         .task { await injuryVM.fetch() }
         .task { await trainingVM.fetch() }

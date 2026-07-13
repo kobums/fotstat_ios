@@ -10,9 +10,12 @@ struct TeamStatsContentView: View {
     @ObservedObject var period: StatsPeriod
     @StateObject private var vm: TeamStatsViewModel
     @Environment(\.fsTheme) var t
-    // iPad(세로·가로 모두 regular)는 순위 3종을 가로 나란히 + 전체 펼침,
-    // iPhone(compact)은 세로 스택 + top3 + 자세히 보기.
+    // iPad는 순위를 가로 나란히 + 전체 펼침, iPhone(compact)은 세로 스택 + top3.
+    // 단, 가로 배치는 사이즈 클래스만으론 부족 — iPad 세로도 regular라 컬럼이
+    // 좁아져 이름이 잘리므로 실제 폭이 컬럼 수 × 최소 폭 이상일 때만 적용한다.
     @Environment(\.horizontalSizeClass) private var hSize
+    /// 순위 컬럼 하나가 이름 + 풀 서브라벨을 잘림 없이 표시하는 최소 폭 (ReportView의 반쪽 360과 동일 기준)
+    private static let rankingColumnMinWidth: CGFloat = 360
     /// 리포트(경기기록표)는 별도 탭이 아니라 여기서 전체 화면으로 연다 — 탭 6개가 되면
     /// iOS가 '더보기'로 접기 때문에 훈련 탭을 넣으며 리포트를 통계 탭 안으로 옮겼다.
     @State private var showReport = false
@@ -25,10 +28,12 @@ struct TeamStatsContentView: View {
     }
 
     var body: some View {
-        statsBody(isWide: hSize == .regular)
+        GeometryReader { geo in
+            statsBody(containerWidth: geo.size.width)
+        }
     }
 
-    private func statsBody(isWide: Bool) -> some View {
+    private func statsBody(containerWidth: CGFloat) -> some View {
         ZStack {
             ScrollView {
                 VStack(spacing: 0) {
@@ -83,21 +88,7 @@ struct TeamStatsContentView: View {
                         }
 
                         if let stats = vm.stats, !stats.players.isEmpty {
-                            // iPad 가로: 득점 | 어시스트 | 출전 시간을 나란히, 전체 펼침
-                            if isWide {
-                                HStack(alignment: .top, spacing: 0) {
-                                    VStack(spacing: 0) { goalRanking(stats, expanded: true) }
-                                        .frame(maxWidth: .infinity, alignment: .top)
-                                    VStack(spacing: 0) { assistRanking(stats, expanded: true) }
-                                        .frame(maxWidth: .infinity, alignment: .top)
-                                    VStack(spacing: 0) { minRanking(stats, expanded: true) }
-                                        .frame(maxWidth: .infinity, alignment: .top)
-                                }
-                            } else {
-                                goalRanking(stats, expanded: false)
-                                assistRanking(stats, expanded: false)
-                                minRanking(stats, expanded: false)
-                            }
+                            rankings(stats, containerWidth: containerWidth)
                         }
                     }
                 }
@@ -135,6 +126,36 @@ struct TeamStatsContentView: View {
 
     private func refetch() async {
         await vm.fetch(start: period.startDate, end: period.endDate)
+    }
+
+    // 순위 3종 배치. 기록이 전혀 없는 순위(섹션이 아예 안 그려짐)는 컬럼에서 제외해
+    // 빈 컬럼이 폭만 차지하지 않게 하고, 남은 컬럼 전부가 최소 폭을 확보할 때만
+    // 가로 배치 + 전체 펼침. 아니면 세로 스택 + top3 + 자세히 보기.
+    @ViewBuilder
+    private func rankings(_ stats: TeamStats, containerWidth: CGFloat) -> some View {
+        let hasGoal = stats.players.contains { $0.goal > 0 }
+        let hasAssist = stats.players.contains { $0.assist > 0 }
+        // 출전 시간은 비어 있어도 emptyHint를 그리므로 항상 한 컬럼
+        let columnCount = (hasGoal ? 1 : 0) + (hasAssist ? 1 : 0) + 1
+        if hSize == .regular,
+           containerWidth >= CGFloat(columnCount) * Self.rankingColumnMinWidth {
+            HStack(alignment: .top, spacing: 0) {
+                if hasGoal {
+                    VStack(spacing: 0) { goalRanking(stats, expanded: true) }
+                        .frame(maxWidth: .infinity, alignment: .top)
+                }
+                if hasAssist {
+                    VStack(spacing: 0) { assistRanking(stats, expanded: true) }
+                        .frame(maxWidth: .infinity, alignment: .top)
+                }
+                VStack(spacing: 0) { minRanking(stats, expanded: true) }
+                    .frame(maxWidth: .infinity, alignment: .top)
+            }
+        } else {
+            goalRanking(stats, expanded: false)
+            assistRanking(stats, expanded: false)
+            minRanking(stats, expanded: false)
+        }
     }
 
     private func goalRanking(_ stats: TeamStats, expanded: Bool) -> some View {
