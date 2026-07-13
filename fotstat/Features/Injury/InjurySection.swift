@@ -56,7 +56,14 @@ struct InjurySection: View {
                                 absentGames: vm.absentGames(for: injury, matches: vm.matches)
                             )
                             if isReadOnly {
-                                row
+                                // 홈에서도 탭하면 해당 부상 상세(수정 폼)로 진입 —
+                                // 등록·복귀 버튼·지난 부상만 선수단 탭 전용으로 남긴다
+                                Button {
+                                    editing = .from(injury)
+                                } label: {
+                                    row
+                                }
+                                .buttonStyle(.plain)
                             } else {
                                 HStack(spacing: 0) {
                                     Button {
