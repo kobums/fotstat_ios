@@ -155,12 +155,13 @@ func computeTeamStats(_ raw: TeamStatsRaw) -> TeamStats {
     for q in allQuarters { quarterMatchMap[q.id] = (matchId: q.match, awaygoals: q.awaygoals) }
 
     // player별 집계 + 경기 추적
-    var agg: [Int: (goal: Int, assist: Int, min: Int)] = [:]
+    var agg: [Int: (goal: Int, assist: Int, min: Int, yellow: Int, red: Int)] = [:]
     var matchHomeGoals: [Int: Int] = [:]
     var playerMatchIds: [Int: Set<Int>] = [:]
     for r in allRecords {
-        var s = agg[r.player] ?? (0, 0, 0)
+        var s = agg[r.player] ?? (0, 0, 0, 0, 0)
         s.goal += r.goal; s.assist += r.assist; s.min += r.min
+        s.yellow += r.yellowcard; s.red += r.redcard
         agg[r.player] = s
         if let qInfo = quarterMatchMap[r.quarter] {
             matchHomeGoals[qInfo.matchId, default: 0] += r.goal
@@ -215,7 +216,8 @@ func computeTeamStats(_ raw: TeamStatsRaw) -> TeamStats {
         }
         let games = playerMatchIds[p.id]?.count ?? 0
         return PlayerStats(id: p.id, name: p.name, number: p.number, position: p.pos,
-                           goal: s.goal, assist: s.assist, min: s.min, games: games, absentGames: absent)
+                           goal: s.goal, assist: s.assist, min: s.min, games: games, absentGames: absent,
+                           yellow: s.yellow, red: s.red)
     }
 
     var result = TeamStats(
@@ -295,6 +297,14 @@ func playerMatchLogs(_ raw: TeamStatsRaw, playerId: Int) -> [PlayerMatchLog] {
         ))
     }
     return logs.sorted { $0.matchdate > $1.matchdate }
+}
+
+/// 카드 표기: 0이면 빈칸, 1이면 아이콘만, 2+면 아이콘+개수. 웹 playerMatchLog.cardText 미러.
+func cardText(yellow: Int, red: Int) -> String {
+    var parts: [String] = []
+    if yellow > 0 { parts.append(yellow > 1 ? "🟨\(yellow)" : "🟨") }
+    if red > 0 { parts.append(red > 1 ? "🟥\(red)" : "🟥") }
+    return parts.joined(separator: " ")
 }
 
 /// 선수의 부상 이력(최신 발생순).

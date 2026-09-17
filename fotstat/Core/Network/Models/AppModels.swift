@@ -28,7 +28,7 @@ struct Team: Decodable, Identifiable, Hashable {
 
 // MARK: - Player
 
-struct Player: Decodable, Identifiable {
+struct Player: Decodable, Identifiable, Hashable {
     let id: Int
     let team: Int
     let name: String
@@ -207,6 +207,8 @@ struct PlayerStats: Decodable, Identifiable, Hashable {
     let min: Int
     var games: Int = 0
     var absentGames: Int = 0   // 부상으로 결장한 경기 수
+    var yellow: Int = 0        // 경고(옐로카드) 누적
+    var red: Int = 0           // 퇴장(레드카드) 누적
 }
 
 struct MatchStats: Decodable {
