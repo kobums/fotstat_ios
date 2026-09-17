@@ -38,6 +38,10 @@ struct TeamContextView: View {
             MatchDetailView(match: match, team: team)
                 .environment(\.fsTheme, t)
         }
+        .navigationDestination(for: Player.self) { player in
+            PlayerDetailView(player: player, team: team)
+                .environment(\.fsTheme, t)
+        }
         .toolbar(.hidden, for: .navigationBar)
         .ignoresSafeArea(.keyboard)
     }

@@ -4,6 +4,8 @@ import Combine
 extension Notification.Name {
     /// 선수 삭제 시 부상 명단·통계 등 다른 탭 화면이 재조회하도록 알림
     static let playerDeleted = Notification.Name("fotstat.playerDeleted")
+    /// 선수 정보 수정 시 선수단 목록 등 다른 화면이 재조회하도록 알림
+    static let playerChanged = Notification.Name("fotstat.playerChanged")
 }
 
 @MainActor
@@ -43,10 +45,15 @@ final class PlayerViewModel: LoadableViewModel {
                 responseType: CodeResponse.self
             )
             await self.fetchPlayers()
+            NotificationCenter.default.post(name: .playerChanged, object: nil, userInfo: ["playerId": id])
         }
     }
 
-    func deletePlayer(id: Int) async {
+    /// 성공 여부 반환 — 상세 화면은 성공했을 때만 목록으로 돌아간다.
+    /// (withDeleting 은 errorMessage 를 사전 리셋하지 않으므로 stale 에러로 판단하면 안 된다.)
+    @discardableResult
+    func deletePlayer(id: Int) async -> Bool {
+        var ok = false
         await withDeleting(id) {
             _ = try await APIClient.shared.request(
                 .deletePlayer(id: id),
@@ -58,6 +65,8 @@ final class PlayerViewModel: LoadableViewModel {
                 object: nil,
                 userInfo: ["playerId": id]
             )
+            ok = true
         }
+        return ok
     }
 }

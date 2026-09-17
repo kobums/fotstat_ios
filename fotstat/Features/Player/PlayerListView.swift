@@ -5,7 +5,6 @@ struct PlayerListView: View {
     @StateObject private var injuryVM: InjuryViewModel
     @StateObject private var inbodyVM: InbodyViewModel
     @State private var showAddPlayer = false
-    @State private var editingPlayer: Player?
     @State private var playerToDelete: Player?
     @Environment(\.fsTheme) var t
 
@@ -66,17 +65,20 @@ struct PlayerListView: View {
 
                                     VStack(spacing: 0) {
                                         ForEach(Array(players.enumerated()), id: \.element.id) { i, player in
-                                            PlayerRow(player: player)
-                                                .contentShape(Rectangle())
-                                                .onTapGesture { editingPlayer = player }
-                                                .contextMenu {
-                                                    Button(role: .destructive) {
-                                                        playerToDelete = player
-                                                    } label: {
-                                                        Label("선수 삭제", systemImage: "trash")
-                                                    }
-                                                    .disabled(vm.deletingIds.contains(player.id))
+                                            // 행 탭 = 선수 상세(push). 수정은 상세 화면 툴바에서.
+                                            NavigationLink(value: player) {
+                                                PlayerRow(player: player)
+                                                    .contentShape(Rectangle())
+                                            }
+                                            .buttonStyle(.plain)
+                                            .contextMenu {
+                                                Button(role: .destructive) {
+                                                    playerToDelete = player
+                                                } label: {
+                                                    Label("선수 삭제", systemImage: "trash")
                                                 }
+                                                .disabled(vm.deletingIds.contains(player.id))
+                                            }
                                             if i < players.count - 1 {
                                                 Divider().padding(.leading, 56).background(t.line)
                                             }
@@ -101,19 +103,19 @@ struct PlayerListView: View {
         .task { await injuryVM.fetch() }
         .task { await inbodyVM.fetch() }
         .onReceive(NotificationCenter.default.publisher(for: .playerDeleted)) { _ in
-            // 선수 삭제 시 부상·인바디 내역도 CASCADE 삭제되므로 두 섹션 재조회
+            // 선수 삭제 시 부상·인바디 내역도 CASCADE 삭제되므로 두 섹션 재조회.
+            // 상세 화면 툴바에서 삭제한 경우 이 목록도 갱신해야 한다.
+            Task { await vm.fetchPlayers() }
             Task { await injuryVM.fetch() }
             Task { await inbodyVM.fetch() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .playerChanged)) { _ in
+            // 상세 화면에서 수정한 이름·등번호·포지션 반영
+            Task { await vm.fetchPlayers() }
         }
         .sheet(isPresented: $showAddPlayer) {
             PlayerFormView(title: "선수 추가") { name, number, pos, birthdate in
                 Task { await vm.createPlayer(name: name, number: number, pos: pos, birthdate: birthdate) }
-            }
-            .environment(\.fsTheme, t)
-        }
-        .sheet(item: $editingPlayer) { player in
-            PlayerFormView(title: "선수 수정", initialName: player.name, initialNumber: player.number, initialPos: player.pos, initialBirthdate: player.birthdate) { name, number, pos, birthdate in
-                Task { await vm.updatePlayer(id: player.id, name: name, number: number, pos: pos, birthdate: birthdate) }
             }
             .environment(\.fsTheme, t)
         }
