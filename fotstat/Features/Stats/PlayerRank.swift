@@ -59,16 +59,6 @@ enum PlayerRank {
         return m.total >= pctMinSquad ? "상위 \(m.pct)%" : "\(m.rank)위 / \(m.total)명"
     }
 
-    /// computeTeamStats는 기록 없는 선수를 제외하므로, 순위 모집단(스쿼드 전원)을 만들 때
-    /// 빠진 선수를 0 기록으로 채운다 — 웹 aggregateTeamStats(전원 포함)와 같은 모집단.
-    static func fullSquad(players: [Player], stats: [PlayerStats]) -> [PlayerStats] {
-        let byId = Dictionary(stats.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-        return players.map { p in
-            byId[p.id] ?? PlayerStats(id: p.id, name: p.name, number: p.number, position: p.pos,
-                                      goal: 0, assist: 0, min: 0)
-        }
-    }
-
     private struct MetricDef {
         let key: String
         let label: String

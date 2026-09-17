@@ -234,8 +234,8 @@ func computeTeamStats(_ raw: TeamStatsRaw) -> TeamStats {
 // MARK: - 선수 상세: 경기별 기록
 
 /// 선수가 뛴 경기 하나의 기록 — 쿼터별(출전분/골/도움/카드)과 경기 합계·스코어.
-struct PlayerMatchLog: Identifiable {
-    struct QuarterLine: Identifiable {
+struct PlayerMatchLog: Identifiable, Decodable {
+    struct QuarterLine: Identifiable, Decodable {
         let id: Int       // quarter id
         let number: Int
         let min: Int
@@ -243,6 +243,11 @@ struct PlayerMatchLog: Identifiable {
         let assist: Int
         let yellow: Int
         let red: Int
+
+        enum CodingKeys: String, CodingKey {
+            case id = "quarterId"
+            case number, min, goal, assist, yellow, red
+        }
     }
     let matchId: Int
     let opponent: String
