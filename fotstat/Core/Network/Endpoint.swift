@@ -326,14 +326,23 @@ extension Endpoint {
     }
 }
 
-// MARK: - Stats (not yet implemented in backend)
+// MARK: - Stats (playerStats 만 구현됨 — teamStats/matchStats 는 백엔드 미구현 플레이스홀더)
 
 extension Endpoint {
     static func teamStats(teamId: Int) -> Endpoint {
         Endpoint(path: "/teams/\(teamId)/stats", method: .GET)
     }
-    static func playerStats(playerId: Int) -> Endpoint {
-        Endpoint(path: "/players/\(playerId)/stats", method: .GET)
+    /// 선수 상세 통계 — 요약·스쿼드 집계·경기별 기록·부상 이력·훈련 참석을 한 번에.
+    /// start/end 는 "yyyy-MM-dd"(inclusive), 비우면 전체 기간. 서버가 집계하므로
+    /// 경기→쿼터→기록 fan-out(loadStatsRaw)이 필요 없다.
+    static func playerStats(playerId: Int, start: String? = nil, end: String? = nil) -> Endpoint {
+        var items: [URLQueryItem] = []
+        if let start, !start.isEmpty { items.append(URLQueryItem(name: "start", value: start)) }
+        if let end, !end.isEmpty { items.append(URLQueryItem(name: "end", value: end)) }
+        var comps = URLComponents()
+        comps.path = "/player/\(playerId)/stats"
+        if !items.isEmpty { comps.queryItems = items }
+        return Endpoint(path: comps.string ?? comps.path, method: .GET)
     }
     static func matchStats(matchId: Int) -> Endpoint {
         Endpoint(path: "/matches/\(matchId)/stats", method: .GET)

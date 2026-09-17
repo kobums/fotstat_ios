@@ -9,7 +9,6 @@ struct PlayerDetailView: View {
     @State private var player: Player
     @StateObject private var vm: PlayerDetailViewModel
     @StateObject private var playerVM: PlayerViewModel
-    @StateObject private var trainingVM: TrainingViewModel
     @StateObject private var inbodyVM: InbodyViewModel
     @Environment(\.fsTheme) var t
     @Environment(\.dismiss) private var dismiss
@@ -23,7 +22,6 @@ struct PlayerDetailView: View {
         _player = State(initialValue: player)
         _vm = StateObject(wrappedValue: PlayerDetailViewModel(team: team, playerId: player.id))
         _playerVM = StateObject(wrappedValue: PlayerViewModel(team: team))
-        _trainingVM = StateObject(wrappedValue: TrainingViewModel(team: team))
         _inbodyVM = StateObject(wrappedValue: InbodyViewModel(team: team))
     }
 
@@ -36,29 +34,14 @@ struct PlayerDetailView: View {
         games > 0 ? Double(v) / Double(games) : 0
     }
 
-    /// 기간 내 훈련이 하나라도 있을 때만 참석 통계를 보여준다.
-    private var hasTrainingInRange: Bool {
-        let today = Date.todayYMD
-        return trainingVM.trainings.contains {
-            let day = $0.trainingdate.dayPrefix
-            return day <= today
-                && (vm.startDay.map { day >= $0 } ?? true)
-                && (vm.endDay.map { day <= $0 } ?? true)
-        }
-    }
+    /// 기간 내 열린 훈련이 있을 때만 서버가 training 을 채운다.
+    private var myTraining: PlayerTrainingLine? { stat?.training }
 
-    private var myTraining: TrainingViewModel.PlayerTrainingStats? {
-        guard hasTrainingInRange else { return nil }
-        return trainingVM.stats(for: player.id, from: vm.startDay, to: vm.endDay)
-    }
-
-    /// 순위 카드의 참석률 행 — 스쿼드 전원의 참석률.
+    /// 순위 카드의 참석률 행 — 서버가 스쿼드 전원의 참석 집계를 함께 내려준다.
     private var attendanceRates: [Int: Int]? {
-        guard hasTrainingInRange else { return nil }
+        guard myTraining != nil else { return nil }
         var map: [Int: Int] = [:]
-        for p in vm.squad {
-            map[p.id] = trainingVM.stats(for: p.id, from: vm.startDay, to: vm.endDay).rate
-        }
+        for p in vm.squad { map[p.id] = p.training?.rate ?? 0 }
         return map
     }
 
@@ -99,14 +82,13 @@ struct PlayerDetailView: View {
             }
         }
         .task { await vm.fetch() }
-        .task { await trainingVM.fetch() }
         .task { await inbodyVM.fetch() }
         .onChange(of: vm.periodKey) { _, _ in Task { await vm.fetch() } }
         .onReceive(NotificationCenter.default.publisher(for: .injuryChanged)) { _ in
             Task { await vm.fetch() }
         }
         .onReceive(NotificationCenter.default.publisher(for: .trainingChanged)) { _ in
-            Task { await trainingVM.fetch() }
+            Task { await vm.fetch() }
         }
         .sheet(isPresented: $showEdit) {
             PlayerFormView(title: "선수 수정", initialName: player.name, initialNumber: player.number,
@@ -134,6 +116,7 @@ struct PlayerDetailView: View {
             }
         )
         .errorAlert($playerVM.errorMessage)
+        .errorAlert($vm.errorMessage, title: "통계 조회 실패")
         .toolbar(.hidden, for: .navigationBar)
     }
 
@@ -226,12 +209,12 @@ struct PlayerDetailView: View {
     @ViewBuilder
     private var mainColumn: some View {
         VStack(spacing: 16) {
-            if vm.isLoading && vm.stats == nil {
+            if vm.isLoading && vm.result == nil {
                 ProgressView().frame(maxWidth: .infinity).padding(.vertical, 40)
             } else {
                 summarySection
                 section("경기별 기록") {
-                    PlayerMatchLogList(logs: vm.matchLogs, matches: vm.raw?.finished)
+                    PlayerMatchLogList(logs: vm.matchLogs, matches: vm.matches)
                 }
             }
             inbodySection
@@ -242,7 +225,7 @@ struct PlayerDetailView: View {
     @ViewBuilder
     private var summarySection: some View {
         VStack(spacing: 8) {
-            if vm.isRanged, let s = vm.stats, s.matchCount == 0 {
+            if vm.isRanged, vm.result != nil, vm.matchCount == 0 {
                 HStack {
                     Text("이 기간에 경기가 없습니다.")
                         .font(.system(size: 13))
@@ -300,7 +283,7 @@ struct PlayerDetailView: View {
 
     @ViewBuilder
     private var asideColumn: some View {
-        if !(vm.isLoading && vm.stats == nil) {
+        if !(vm.isLoading && vm.result == nil) {
             VStack(spacing: 16) {
                 TeamRankCard(playerId: player.id, squad: vm.squad, attendance: attendanceRates)
                 section("부상 이력") {

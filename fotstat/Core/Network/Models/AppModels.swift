@@ -197,6 +197,10 @@ struct TeamStats: Decodable {
     var totalConceded: Int = 0   // 기간 내 실점(상대 골) 합계
 }
 
+/// 주의: `var x: Int = 0` 기본값은 memberwise init 에만 적용되고 synthesized Decodable 에는
+/// 적용되지 않는다 — JSON 에 키가 없으면 keyNotFound 로 실패한다. 현재 이 타입을 디코딩하는
+/// 곳은 /player/:id/stats 뿐이며 서버(playerstats.go PlayerLine)가 모든 키를 항상 보낸다.
+/// 다른 엔드포인트가 이 타입을 쓰게 되면 키 구성을 맞추거나 decodeIfPresent 로 바꿀 것.
 struct PlayerStats: Decodable, Identifiable, Hashable {
     let id: Int
     let name: String
@@ -209,6 +213,32 @@ struct PlayerStats: Decodable, Identifiable, Hashable {
     var absentGames: Int = 0   // 부상으로 결장한 경기 수
     var yellow: Int = 0        // 경고(옐로카드) 누적
     var red: Int = 0           // 퇴장(레드카드) 누적
+    /// 훈련 참석 집계 — 서버 선수 통계 응답에만 실린다. 기간 내 열린 훈련이 없으면 nil.
+    var training: PlayerTrainingLine? = nil
+}
+
+/// 선수의 훈련 참석 집계(서버 playerstats.go TrainingLine).
+struct PlayerTrainingLine: Decodable, Hashable {
+    let attended: Int
+    let held: Int
+    let rate: Int       // %, 반올림
+    let totalMin: Int
+}
+
+/// GET /player/:id/stats 응답 item — 선수 상세 화면이 한 번에 그리는 데 필요한 전부.
+struct PlayerStatsResult: Decodable {
+    let player: Player
+    let start: String
+    let end: String
+    /// 기간 내 진행된(쿼터가 있는) 팀 경기 수.
+    let matchCount: Int
+    let summary: PlayerStats
+    /// 스쿼드 전원(순위·팀 평균 계산용), 등번호→이름 순.
+    let squad: [PlayerStats]
+    /// 최신 경기 순.
+    let matches: [PlayerMatchLog]
+    /// 기간과 무관한 전체 이력, 최신 발생순.
+    let injuries: [Injury]
 }
 
 struct MatchStats: Decodable {
