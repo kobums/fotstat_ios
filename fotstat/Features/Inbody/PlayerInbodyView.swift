@@ -112,34 +112,7 @@ struct PlayerInbodyView: View {
     // MARK: - 최신 측정 요약
 
     private func latestSummary(_ latest: Inbody) -> some View {
-        VStack(spacing: 8) {
-            HStack {
-                Text("최근 측정")
-                    .font(.system(size: 11, weight: .bold))
-                    .kerning(0.5)
-                    .foregroundColor(t.textSec)
-                Spacer()
-                Text(latest.testdate)
-                    .font(.system(size: 11, design: .rounded))
-                    .foregroundColor(t.textTer)
-            }
-            HStack(spacing: 8) {
-                FSStatTile(label: "신장", value: inbodyValue(latest.height, unit: "cm"))
-                FSStatTile(label: "체중", value: inbodyValue(latest.weight, unit: "kg"))
-                FSStatTile(label: "점수", value: inbodyValue(latest.score), accent: latest.score > 0)
-            }
-            HStack(spacing: 8) {
-                FSStatTile(label: "골격근량", value: inbodyValue(latest.muscle, unit: "kg"))
-                FSStatTile(label: "체지방률", value: inbodyValue(latest.fat, unit: "%"))
-                FSStatTile(
-                    label: "다리근육",
-                    value: latest.rightleg > 0 || latest.leftleg > 0
-                        ? "\(inbodyValue(latest.rightleg))/\(inbodyValue(latest.leftleg))"
-                        : "-",
-                    sub: "오른/왼(kg)"
-                )
-            }
-        }
+        InbodyLatestSummary(latest: latest)
     }
 
     // MARK: - 추이 차트
@@ -201,5 +174,42 @@ struct PlayerInbodyView: View {
             }
         }
         .fsCard()
+    }
+}
+
+/// 최신 인바디 측정 요약(검사일 + 6타일). 인바디 시트와 선수 상세가 공유한다.
+struct InbodyLatestSummary: View {
+    let latest: Inbody
+    @Environment(\.fsTheme) var t
+
+    var body: some View {
+        VStack(spacing: 8) {
+            HStack {
+                Text("최근 측정")
+                    .font(.system(size: 11, weight: .bold))
+                    .kerning(0.5)
+                    .foregroundColor(t.textSec)
+                Spacer()
+                Text(latest.testdate)
+                    .font(.system(size: 11, design: .rounded))
+                    .foregroundColor(t.textTer)
+            }
+            HStack(spacing: 8) {
+                FSStatTile(label: "신장", value: inbodyValue(latest.height, unit: "cm"))
+                FSStatTile(label: "체중", value: inbodyValue(latest.weight, unit: "kg"))
+                FSStatTile(label: "점수", value: inbodyValue(latest.score), accent: latest.score > 0)
+            }
+            HStack(spacing: 8) {
+                FSStatTile(label: "골격근량", value: inbodyValue(latest.muscle, unit: "kg"))
+                FSStatTile(label: "체지방률", value: inbodyValue(latest.fat, unit: "%"))
+                FSStatTile(
+                    label: "다리근육",
+                    value: latest.rightleg > 0 || latest.leftleg > 0
+                        ? "\(inbodyValue(latest.rightleg))/\(inbodyValue(latest.leftleg))"
+                        : "-",
+                    sub: "오른/왼(kg)"
+                )
+            }
+        }
     }
 }

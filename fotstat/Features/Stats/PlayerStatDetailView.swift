@@ -119,12 +119,12 @@ struct PlayerStatDetailView: View {
 
     private var miniTilesRow: some View {
         HStack(spacing: 8) {
-            miniTile("골", value: player.goal, accent: true)
-            miniTile("도움", value: player.assist)
-            miniTile("출전 분", value: player.min, suffix: "'")
-            miniTile("경기", value: player.games)
+            FSMiniStatTile("골", value: player.goal, accent: true)
+            FSMiniStatTile("도움", value: player.assist)
+            FSMiniStatTile("출전 분", value: player.min, suffix: "'")
+            FSMiniStatTile("경기", value: player.games)
             if player.absentGames > 0 {
-                miniTile("결장", value: player.absentGames)
+                FSMiniStatTile("결장", value: player.absentGames)
             }
         }
         .padding(.horizontal, 16)
@@ -172,75 +172,16 @@ struct PlayerStatDetailView: View {
     private func matchLogSection(_ logs: [PlayerMatchLog]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             sectionTitle("경기별 기록")
-            ForEach(logs) { matchLogCard($0) }
+            PlayerMatchLogList(logs: logs)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)
     }
 
-    @ViewBuilder
-    private func matchLogCard(_ log: PlayerMatchLog) -> some View {
-        let totalCards = cardText(yellow: log.yellow, red: log.red)
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
-                Text(shortDate(log.matchdate))
-                    .font(.system(size: 12, weight: .bold)).foregroundColor(t.textSec)
-                Text("vs \(log.opponent)")
-                    .font(.system(size: 13, weight: .semibold)).foregroundColor(t.text).lineLimit(1)
-                Spacer()
-                Text("\(log.home):\(log.away)")
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
-                    .monospacedDigit().foregroundColor(t.text)
-                FSResultPill(result: log.result, label: log.resultLabel, size: 18)
-            }
-            Divider().background(t.line)
-            ForEach(log.quarters) { q in
-                let cards = cardText(yellow: q.yellow, red: q.red)
-                HStack(spacing: 8) {
-                    Text("Q\(q.number)")
-                        .font(.system(size: 12, weight: .bold)).foregroundColor(t.textSec)
-                        .frame(width: 26, alignment: .leading)
-                    Text("\(q.min)'")
-                        .font(.system(size: 12)).monospacedDigit().foregroundColor(t.textTer)
-                        .frame(width: 34, alignment: .leading)
-                    Text("\(q.goal)G \(q.assist)A")
-                        .font(.system(size: 12, weight: .semibold)).monospacedDigit().foregroundColor(t.text)
-                    Spacer()
-                    if !cards.isEmpty { Text(cards).font(.system(size: 11)) }
-                }
-            }
-            Text("합계 \(log.min)' · \(log.goal)G \(log.assist)A" + (totalCards.isEmpty ? "" : " · \(totalCards)"))
-                .font(.system(size: 12, weight: .bold)).foregroundColor(t.textSec)
-                .padding(.top, 4)
-        }
-        .padding(.horizontal, 12).padding(.vertical, 10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .fsCard()
-    }
-
     private func injurySection(_ injuries: [Injury]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             sectionTitle("부상 이력")
-            VStack(spacing: 0) {
-                ForEach(Array(injuries.enumerated()), id: \.element.id) { i, inj in
-                    HStack(spacing: 8) {
-                        Text(inj.type?.isEmpty == false ? inj.type! : "부상")
-                            .font(.system(size: 13, weight: .bold)).foregroundColor(t.text)
-                        Text("\(shortDate(inj.startdate ?? "")) ~ \(inj.isActive ? "진행 중" : shortDate(inj.returndate ?? ""))")
-                            .font(.system(size: 12)).monospacedDigit().foregroundColor(t.textTer)
-                        Spacer()
-                        if inj.isActive {
-                            Text("부상 중")
-                                .font(.system(size: 10, weight: .bold)).foregroundColor(t.neg)
-                                .padding(.horizontal, 6).padding(.vertical, 2)
-                                .background(t.neg.opacity(0.14)).cornerRadius(4)
-                        }
-                    }
-                    .padding(.horizontal, 12).padding(.vertical, 10)
-                    if i < injuries.count - 1 { Divider().background(t.line) }
-                }
-            }
-            .fsCard()
+            PlayerInjuryList(injuries: injuries)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)
@@ -253,38 +194,6 @@ struct PlayerStatDetailView: View {
                 .foregroundColor(t.textTer)
             Spacer()
         }
-    }
-
-    /// "yyyy-MM-dd HH:mm:ss" 또는 "yyyy-MM-dd" → "MM.dd"
-    private func shortDate(_ s: String) -> String {
-        let day = s.dayPrefix
-        let comps = day.split(separator: "-")
-        return comps.count == 3 ? "\(comps[1]).\(comps[2])" : day
-    }
-
-    /// 카드 표기: 0이면 빈칸, 1이면 아이콘만, 2+면 아이콘+개수.
-    private func cardText(yellow: Int, red: Int) -> String {
-        var parts: [String] = []
-        if yellow > 0 { parts.append(yellow > 1 ? "🟨\(yellow)" : "🟨") }
-        if red > 0 { parts.append(red > 1 ? "🟥\(red)" : "🟥") }
-        return parts.joined(separator: " ")
-    }
-
-    @ViewBuilder
-    private func miniTile(_ label: String, value: Int, suffix: String = "", accent: Bool = false) -> some View {
-        VStack(spacing: 4) {
-            Text("\(value)\(suffix)")
-                .font(.system(size: 22, weight: .black, design: .rounded))
-                .foregroundColor(accent && value > 0 ? t.accent : t.text)
-                .minimumScaleFactor(0.6)
-            Text(label)
-                .font(.system(size: 10, weight: .bold))
-                .kerning(0.4)
-                .foregroundColor(t.textTer)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .fsCard()
     }
 
     @ViewBuilder
