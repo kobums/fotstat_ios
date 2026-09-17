@@ -83,8 +83,14 @@ final class TrainingViewModel: ObservableObject {
         var rate: Int { held == 0 ? 0 : Int((Double(attended) / Double(held) * 100).rounded()) }
     }
 
-    func stats(for playerId: Int, today: String = Date.todayYMD) -> PlayerTrainingStats {
-        let heldIds = Set(trainings.filter { $0.trainingdate.dayPrefix <= today }.map(\.id))
+    /// `from`/`to`("yyyy-MM-dd", 포함)로 기간을 자르면 선수 상세처럼 경기 집계와 같은
+    /// 기간의 참석률을 얻는다. 미래 훈련은 항상 분모에서 제외.
+    func stats(for playerId: Int, from start: String? = nil, to end: String? = nil,
+               today: String = Date.todayYMD) -> PlayerTrainingStats {
+        let heldIds = Set(trainings.filter {
+            let day = $0.trainingdate.dayPrefix
+            return day <= today && (start.map { day >= $0 } ?? true) && (end.map { day <= $0 } ?? true)
+        }.map(\.id))
         let mine = attendances.filter { $0.player == playerId && heldIds.contains($0.training) }
         return PlayerTrainingStats(
             attended: mine.count,

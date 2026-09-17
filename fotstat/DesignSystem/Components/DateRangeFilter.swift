@@ -4,6 +4,8 @@ struct DateRangeFilter: View {
     @Binding var startDate: Date?
     @Binding var endDate: Date?
     let onApply: () -> Void
+    /// 초기화 버튼이 되돌리는 기본 시작일. 통계 탭은 이번 달 1일, 선수 상세는 올해 1월 1일.
+    var defaultStart: Date? = DateRangeFilter.monthStart
 
     @Environment(\.fsTheme) var t
     @State private var showingStart = false
@@ -15,13 +17,21 @@ struct DateRangeFilter: View {
         return f
     }()
 
-    private var defaultStart: Date? { Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: Date())) }
+    static var monthStart: Date? { Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: Date())) }
+    static var yearStart: Date? { Calendar.current.date(from: Calendar.current.dateComponents([.year], from: Date())) }
     private var defaultEnd: Date { Date() }
 
+    /// 기본 기간과 다르면 필터 중 — 한쪽이 nil(열린 구간)인 것도 기본과 다르므로 필터로 본다.
     var isFiltered: Bool {
-        if let s = startDate, let d = defaultStart, !Calendar.current.isDate(s, inSameDayAs: d) { return true }
-        if let e = endDate, !Calendar.current.isDate(e, inSameDayAs: defaultEnd) { return true }
-        return false
+        !Self.sameDay(startDate, defaultStart) || !Self.sameDay(endDate, defaultEnd)
+    }
+
+    private static func sameDay(_ a: Date?, _ b: Date?) -> Bool {
+        switch (a, b) {
+        case (nil, nil): return true
+        case let (x?, y?): return Calendar.current.isDate(x, inSameDayAs: y)
+        default: return false
+        }
     }
 
     var body: some View {
@@ -44,7 +54,7 @@ struct DateRangeFilter: View {
 
             if isFiltered {
                 Button {
-                    startDate = Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: Date()))
+                    startDate = defaultStart
                     endDate = Date()
                     onApply()
                 } label: {
