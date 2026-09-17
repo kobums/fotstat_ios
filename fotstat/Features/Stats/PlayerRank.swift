@@ -55,7 +55,9 @@ enum PlayerRank {
     }
 
     static func label(_ m: RankMetric) -> String {
-        if m.total == 0 { return "-" }
+        // 값이 0이면 순위를 매기지 않는다 — 전원이 0일 때 모두 공동 1위가 되어
+        // "0% · 상위 5%" 같은 배지가 붙는 것을 막는다(웹 rankLabel 과 같은 규칙).
+        if m.total == 0 || m.value <= 0 { return "-" }
         return m.total >= pctMinSquad ? "상위 \(m.pct)%" : "\(m.rank)위 / \(m.total)명"
     }
 
@@ -64,13 +66,15 @@ enum PlayerRank {
         let label: String
         let pick: (PlayerStats) -> Int
         var unit: String = ""
+        /// 경기당 모드의 소수 자릿수. 분 단위는 소수가 어색해 정수로 반올림한다.
+        var perGameDecimals: Int = 2
     }
 
     private static let statMetrics: [MetricDef] = [
         .init(key: "goal", label: "골", pick: { $0.goal }),
         .init(key: "assist", label: "도움", pick: { $0.assist }),
         .init(key: "points", label: "공격P", pick: { $0.goal + $0.assist }),
-        .init(key: "min", label: "출전 시간", pick: { $0.min }, unit: "′"),
+        .init(key: "min", label: "출전 시간", pick: { $0.min }, unit: "′", perGameDecimals: 0),
     ]
 
     private static func mean(_ values: [Double]) -> Double {
@@ -90,7 +94,6 @@ enum PlayerRank {
     ) -> [RankMetric] {
         guard let me = squad.first(where: { $0.id == playerId }) else { return [] }
         let played = squad.filter { $0.games > 0 }
-        let decimals = mode == .perGame ? 2 : 0
 
         var result: [RankMetric] = statMetrics.map { def in
             let valueOf: (PlayerStats) -> Double = { p in
@@ -105,7 +108,8 @@ enum PlayerRank {
                 key: def.key, label: def.label, value: value,
                 avg: mean(played.map(valueOf)),
                 pct: topPercent(value, in: all), rank: rank, total: total,
-                max: top > 0 ? top : 1, unit: def.unit, decimals: decimals
+                max: top > 0 ? top : 1, unit: def.unit,
+                decimals: mode == .perGame ? def.perGameDecimals : 0
             )
         }
 
