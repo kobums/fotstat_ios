@@ -27,10 +27,12 @@ extension Endpoint {
         return Endpoint(path: "/apple-auth", method: .POST, body: body, requiresAuth: false)
     }
 
+    /// 자격증명은 JSON 본문으로 보낸다. 예전 GET /jwt?email=&password= 는
+    /// 비밀번호가 URL 에 실려 서버·프록시 로그에 남을 수 있어 사용하지 않는다.
     static func login(email: String, passwd: String) -> Endpoint {
-        let e = email.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? email
-        let p = passwd.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? passwd
-        return Endpoint(path: "/jwt?email=\(e)&password=\(p)", method: .GET, requiresAuth: false)
+        Endpoint(path: "/jwt", method: .POST, body: [
+            "email": email, "password": passwd
+        ], requiresAuth: false)
     }
 
     static func register(email: String, password: String, name: String) -> Endpoint {
