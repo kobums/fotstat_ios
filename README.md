@@ -6,7 +6,7 @@
 
 [![Swift](https://img.shields.io/badge/Swift-6-F05138?style=flat-square&logo=swift&logoColor=white)](https://swift.org/)
 [![SwiftUI](https://img.shields.io/badge/SwiftUI-iOS%2026-007AFF?style=flat-square&logo=apple&logoColor=white)](https://developer.apple.com/xcode/swiftui/)
-[![Xcode](https://img.shields.io/badge/Xcode-16+-147EFB?style=flat-square&logo=xcode&logoColor=white)](https://developer.apple.com/xcode/)
+[![Xcode](https://img.shields.io/badge/Xcode-27.1+-147EFB?style=flat-square&logo=xcode&logoColor=white)](https://developer.apple.com/xcode/)
 
 </div>
 
@@ -95,7 +95,7 @@ fotstat_ios/
 
 ### 요구사항
 
-- Xcode 16+
+- Xcode 27.1+ (iOS 27.1 SDK)
 - iOS 26 SDK
 - 실행 중인 [fotstat API 서버](../fotstat_go)
 
