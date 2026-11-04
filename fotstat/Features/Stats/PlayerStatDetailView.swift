@@ -7,8 +7,9 @@ struct PlayerStatDetailView: View {
     var raw: TeamStatsRaw? = nil
     @Environment(\.fsTheme) var t
     @Environment(\.dismiss) var dismiss
-    // 실제 가용 폭 기준 — 아이패드 Split View 등 좁은 창에서는 세로 스택으로 폴백.
-    @Environment(\.horizontalSizeClass) private var hSize
+    // 실제 시트 폭 — 기기 idiom 대신 이 값으로 2단/시트 형태를 정한다.
+    // (아이패드 Split View 좁은 창은 세로 스택, 폴더블 펼침 화면은 2단)
+    @State private var width: CGFloat = 0
 
     private func avg(_ kp: KeyPath<PlayerStats, Int>) -> Double {
         guard !allPlayers.isEmpty else { return 0 }
@@ -27,8 +28,8 @@ struct PlayerStatDetailView: View {
     var body: some View {
         let logs = raw.map { playerMatchLogs($0, playerId: player.id) } ?? []
         let injuries = raw.map { playerInjuries($0, playerId: player.id) } ?? []
-        // 2단은 아이패드 + 가로 폭이 넉넉할 때만 (Split View 좁은 창·아이폰 가로는 세로 스택)
-        let twoCol = Self.isPad && hSize == .regular
+        // 2단은 시트 폭이 넉넉할 때만 (Split View 좁은 창·아이폰 가로는 세로 스택)
+        let twoCol = width >= Self.twoColMinWidth
         let content = VStack(spacing: 0) {
             Capsule().fill(t.textTer).frame(width: 36, height: 4)
                 .padding(.top, 12).padding(.bottom, 20)
@@ -76,9 +77,10 @@ struct PlayerStatDetailView: View {
             }
         }
         .background(t.bg.ignoresSafeArea())
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
 
-        if Self.isPad {
-            // 아이패드는 넓은 페이지 시트로 2단이 들어가게 한다
+        if twoCol {
+            // 넓은 화면은 페이지 시트로 2단이 들어가게 한다
             content
                 .presentationSizing(.page)
                 .presentationDragIndicator(.hidden)
@@ -165,7 +167,8 @@ struct PlayerStatDetailView: View {
         .padding(.horizontal, 16)
     }
 
-    private static let isPad = UIDevice.current.userInterfaceIdiom == .pad
+    /// 좌/우 컬럼이 각각 320pt 이상 확보되는 최소 시트 폭.
+    private static let twoColMinWidth: CGFloat = 640
 
     // MARK: - 경기별 기록 · 부상 이력
 

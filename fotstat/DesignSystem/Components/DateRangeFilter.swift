@@ -117,6 +117,8 @@ private struct DatePickerSheet: View {
     @Environment(\.fsTheme) var t
     @Environment(\.dismiss) var dismiss
     @State private var selected: Date
+    /// 시트 실제 폭 — 캘린더 높이가 폭에 비례하므로 detent 높이를 여기서 정한다.
+    @State private var sheetWidth: CGFloat = 0
 
     init(title: String, date: Date, onConfirm: @escaping (Date) -> Void) {
         self.title = title
@@ -163,15 +165,18 @@ private struct DatePickerSheet: View {
             .padding(.bottom, 20)
         }
         .background(t.bg.ignoresSafeArea())
-        // iPhone: 480pt 바텀시트. iPad: 중앙 form 시트(폭 540) + 높이 660 —
-        // detents 높이가 form 시트에도 적용되므로 캘린더+버튼이 다 들어가게 키운다.
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { sheetWidth = $0 }
+        // 좁은 시트(아이폰): 480pt. 넓은 시트(iPad form 시트 폭 540, 폴더블 펼침 등):
+        // 캘린더가 maxWidth 420까지 커지므로 660 — detents 높이가 form 시트에도 적용된다.
         // (fitted는 graphical DatePicker의 ideal 폭을 좁게 계산해 시트가 세로
         //  막대처럼 붕괴하므로 쓰지 않는다. form 시트 내부는 size class가 compact라
-        //  기기 idiom으로 분기한다.)
-        .presentationDetents([.height(Self.isPad ? 660 : 480)])
+        //  기기 idiom 대신 실제 시트 폭으로 분기한다.)
+        .presentationDetents([.height(sheetWidth >= Self.wideSheetMinWidth ? 660 : 480)])
         .presentationSizing(.form)
         .presentationDragIndicator(.hidden)
     }
 
-    private static let isPad = UIDevice.current.userInterfaceIdiom == .pad
+    /// 이 폭 이상이면 캘린더가 최대 폭(420)에 가까워져 480pt에 다 안 들어간다.
+    /// 아이폰 최대(Pro Max 440pt)보다 넓고 iPad form 시트(540pt)보다 좁게 잡는다.
+    private static let wideSheetMinWidth: CGFloat = 500
 }
