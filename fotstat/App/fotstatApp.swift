@@ -44,7 +44,12 @@ struct RootView: View {
         }
         .environment(\.fsTheme, FSTheme(mode: resolvedScheme))
         .environment(\.fsContainerSize, containerSize)
-        .onGeometryChange(for: CGSize.self) { $0.size } action: { containerSize = $0 }
+        // 키보드가 뜰 때 크기가 줄어들지 않도록 키보드 영역은 빼고 측정
+        .background {
+            Color.clear
+                .ignoresSafeArea(.keyboard)
+                .onGeometryChange(for: CGSize.self) { $0.size } action: { containerSize = $0 }
+        }
         .preferredColorScheme(themePreference == "system" ? nil : resolvedScheme)
     }
 }
