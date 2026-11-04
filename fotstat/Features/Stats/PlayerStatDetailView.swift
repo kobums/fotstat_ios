@@ -5,10 +5,13 @@ struct PlayerStatDetailView: View {
     let allPlayers: [PlayerStats]
     /// 경기별 기록·부상 섹션용 원본. nil이면 해당 섹션은 숨긴다.
     var raw: TeamStatsRaw? = nil
+    /// 넓은 페이지 시트로 띄울지 — 띄우는 쪽이 창 크기(fsContainerSize)로 정해 넘긴다.
+    /// 시트 안에서 재면 시트 형태와 폭이 서로 물려 순환하므로 밖에서 결정한다.
+    var presentsAsPage: Bool = false
     @Environment(\.fsTheme) var t
     @Environment(\.dismiss) var dismiss
-    // 실제 가용 폭 기준 — 아이패드 Split View 등 좁은 창에서는 세로 스택으로 폴백.
-    @Environment(\.horizontalSizeClass) private var hSize
+    /// 실제 시트 폭 — 페이지 시트 안에서 2단/1단을 정한다.
+    @State private var width: CGFloat = 0
 
     private func avg(_ kp: KeyPath<PlayerStats, Int>) -> Double {
         guard !allPlayers.isEmpty else { return 0 }
@@ -27,8 +30,12 @@ struct PlayerStatDetailView: View {
     var body: some View {
         let logs = raw.map { playerMatchLogs($0, playerId: player.id) } ?? []
         let injuries = raw.map { playerInjuries($0, playerId: player.id) } ?? []
-        // 2단은 아이패드 + 가로 폭이 넉넉할 때만 (Split View 좁은 창·아이폰 가로는 세로 스택)
-        let twoCol = Self.isPad && hSize == .regular
+        // 2단은 페이지 시트 + 시트 폭이 넉넉할 때만 (Split View 좁은 창·아이폰 가로는 세로 스택)
+        let twoCol = presentsAsPage && width >= Self.twoColMinWidth
+        // if/else로 나누면 접기/펼치기 때 뷰 identity가 바뀌어 스크롤이 초기화되므로 레이아웃만 교체
+        let columns = twoCol
+            ? AnyLayout(HStackLayout(alignment: .top, spacing: 8))
+            : AnyLayout(VStackLayout(spacing: 0))
         let content = VStack(spacing: 0) {
             Capsule().fill(t.textTer).frame(width: 36, height: 4)
                 .padding(.top, 12).padding(.bottom, 20)
@@ -56,29 +63,23 @@ struct PlayerStatDetailView: View {
             .padding(.bottom, 24)
 
             ScrollView {
-                if twoCol {
-                    // 넓은 화면: 왼쪽 선수 정보 | 오른쪽 경기별 기록
-                    HStack(alignment: .top, spacing: 8) {
-                        infoColumn(injuries)
-                            .frame(maxWidth: .infinity, alignment: .top)
-                        logsColumn(logs)
-                            .frame(maxWidth: .infinity, alignment: .top)
-                    }
-                    .padding(.bottom, 24)
-                } else {
-                    // 좁은 화면: 세로 스택 (선수 정보 → 경기별 기록)
-                    VStack(spacing: 0) {
-                        infoColumn(injuries)
-                        logsColumn(logs).padding(.top, 20)
-                    }
-                    .padding(.bottom, 24)
+                // 넓은 화면: 왼쪽 선수 정보 | 오른쪽 경기별 기록
+                // 좁은 화면: 세로 스택 (선수 정보 → 경기별 기록)
+                columns {
+                    infoColumn(injuries)
+                        .frame(maxWidth: .infinity, alignment: .top)
+                    logsColumn(logs)
+                        .frame(maxWidth: .infinity, alignment: .top)
+                        .padding(.top, twoCol ? 0 : 20)
                 }
+                .padding(.bottom, 24)
             }
         }
         .background(t.bg.ignoresSafeArea())
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
 
-        if Self.isPad {
-            // 아이패드는 넓은 페이지 시트로 2단이 들어가게 한다
+        if presentsAsPage {
+            // 넓은 창(iPad·폴더블 펼침)은 페이지 시트로 2단이 들어가게 한다
             content
                 .presentationSizing(.page)
                 .presentationDragIndicator(.hidden)
@@ -165,7 +166,8 @@ struct PlayerStatDetailView: View {
         .padding(.horizontal, 16)
     }
 
-    private static let isPad = UIDevice.current.userInterfaceIdiom == .pad
+    /// 좌/우 컬럼이 각각 ~300pt 이상 확보되는 최소 시트 폭.
+    private static let twoColMinWidth: CGFloat = 600
 
     // MARK: - 경기별 기록 · 부상 이력
 

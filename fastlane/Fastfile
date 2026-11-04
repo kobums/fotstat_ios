@@ -11,6 +11,8 @@ APP_ID    = "com.gowoobro.fotstat"
 INFOPLIST = "fotstat/Info.plist"
 # App Store 릴리즈노트를 기록할 로케일 (앱의 기본 언어에 맞춤)
 RELEASE_LOCALE = ENV["ASC_LOCALE"] || "ko"
+# 배포 빌드 최소 Xcode — iOS 27.1 SDK(iPhone Duo 폴더블 대응)로 빌드해야 한다
+MIN_XCODE_VERSION = "27.1"
 
 # 인증/자격증명 오류는 "첫 업로드(빌드 없음)"와 달리 치명적이므로 재발생시킨다.
 def auth_error?(message)
@@ -24,6 +26,7 @@ platform :ios do
 
   desc "TestFlight 배포: 빌드번호 +1 → 아카이브 → 업로드(체인지로그 자동)"
   lane :beta do
+    ensure_xcode_version
     key   = load_api_key
     bump_build(api_key: key)
     notes = git_changelog
@@ -40,6 +43,7 @@ platform :ios do
 
   desc "App Store 심사 제출: 마케팅버전 자동증가 → 빌드번호 +1 → 릴리즈노트 기록 → 아카이브 → 업로드(처리 대기) → 심사 제출"
   lane :release do
+    ensure_xcode_version
     key   = load_api_key
     # 현재 마케팅 버전이 App Store에서 이미 닫혀(출시/심사완료) 새 빌드를 못 받으면 patch 자동 증가
     ensure_release_version
@@ -112,6 +116,18 @@ platform :ios do
   # ---------------------------------------------------------------------------
   # 내부 헬퍼 레인
   # ---------------------------------------------------------------------------
+
+  desc "배포 빌드용 Xcode 버전 확인 (MIN_XCODE_VERSION 미만이면 중단)"
+  private_lane :ensure_xcode_version do
+    output  = sh("xcodebuild", "-version", log: false)
+    version = output[/^Xcode\s+(\d+(?:\.\d+)*)/, 1]
+    UI.user_error!("xcodebuild -version 출력에서 Xcode 버전을 찾지 못했습니다:\n#{output}") unless version
+    if Gem::Version.new(version) < Gem::Version.new(MIN_XCODE_VERSION)
+      UI.user_error!("Xcode #{MIN_XCODE_VERSION} 이상이 필요합니다 (현재 #{version}). " \
+                     "xcode-select -s 로 Xcode #{MIN_XCODE_VERSION}+ 를 선택한 뒤 다시 실행하세요.")
+    end
+    UI.message("Xcode #{version} 확인 (최소 #{MIN_XCODE_VERSION})")
+  end
 
   desc "앱 아카이브 + IPA 추출 (App Store 배포용)"
   private_lane :archive do

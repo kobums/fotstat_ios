@@ -44,7 +44,8 @@ struct MatchDetailView: View {
 
             ScrollView {
                 VStack(spacing: 0) {
-                    // 네비
+                    // 네비 — 상단 여백은 고정값 대신 실제 safe area를 따른다
+                    // (다이내믹 아일랜드 기기 ≈59pt로 기존과 동일, 폴더블 펼침 등 비대칭 인셋 대응)
                     HStack {
                         FSGlassButton(action: { dismiss() }) {
                             Image(systemName: "chevron.left")
@@ -64,7 +65,6 @@ struct MatchDetailView: View {
                         .disabled(vm.isDeleting)
                     }
                     .padding(.horizontal, 12)
-                    .padding(.top, 58)
                     .padding(.bottom, 8)
 
                     // 스코어라인
@@ -181,30 +181,13 @@ struct MatchDetailView: View {
                 }
                 .padding(.bottom, 40)
             }
-            .ignoresSafeArea(edges: .top)
 
             // FAB
-            VStack {
-                Spacer()
-                HStack {
-                    Spacer()
-                    Button {
-                        // 기본 시간 프리필: 이전 쿼터 > 팀 설정값 > 45분
-                        let lastDuration = vm.quarters.max(by: { $0.number < $1.number })?.duration
-                        newQuarterDuration = lastDuration ?? team.duration ?? 45
-                        showAddQuarter = true
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.system(size: 22, weight: .bold))
-                            .foregroundColor(.white)
-                            .frame(width: 56, height: 56)
-                            .background(t.accent)
-                            .clipShape(Circle())
-                            .shadow(color: t.accent.opacity(0.4), radius: 12, x: 0, y: 6)
-                    }
-                    .padding(.trailing, 24)
-                    .padding(.bottom, 32)
-                }
+            FSFloatingActionButton {
+                // 기본 시간 프리필: 이전 쿼터 > 팀 설정값 > 45분
+                let lastDuration = vm.quarters.max(by: { $0.number < $1.number })?.duration
+                newQuarterDuration = lastDuration ?? team.duration ?? 45
+                showAddQuarter = true
             }
         }
         .navigationDestination(for: Quarter.self) { quarter in

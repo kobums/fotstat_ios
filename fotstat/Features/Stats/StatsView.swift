@@ -187,94 +187,6 @@ struct TeamStatsContentView: View {
     }
 }
 
-// MARK: - StatsView (전역 통계 탭)
-
-struct StatsView: View {
-    @StateObject private var vm = StatsViewModel()
-    @Environment(\.fsTheme) var t
-
-    var body: some View {
-        ZStack {
-            t.bg.ignoresSafeArea()
-
-            if vm.isLoading {
-                ProgressView()
-            } else if vm.teams.isEmpty {
-                VStack(spacing: 16) {
-                    Image(systemName: "chart.bar").font(.system(size: 48)).foregroundColor(t.textTer)
-                    Text("팀을 먼저 추가하세요").font(.system(size: 17, weight: .semibold)).foregroundColor(t.textSec)
-                }
-            } else {
-                ScrollView {
-                    VStack(spacing: 0) {
-                        // 헤더
-                        HStack(alignment: .bottom) {
-                            Text("통계").font(.system(size: 32, weight: .black)).foregroundColor(t.text)
-                            Spacer()
-                        }
-                        .padding(.horizontal, 16).padding(.top, 60).padding(.bottom, 16)
-
-                        // 팀 선택
-                        if vm.teams.count > 1 {
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
-                                    ForEach(vm.teams) { team in
-                                        Button {
-                                            vm.selectedTeamId = team.id
-                                        } label: {
-                                            Text(team.name)
-                                                .font(.system(size: 13, weight: .semibold))
-                                                .foregroundColor(vm.selectedTeamId == team.id ? .white : t.textSec)
-                                                .padding(.horizontal, 14).padding(.vertical, 8)
-                                                .background(vm.selectedTeamId == team.id ? t.accent : t.bgElev)
-                                                .cornerRadius(20)
-                                                .overlay(RoundedRectangle(cornerRadius: 20).stroke(t.line, lineWidth: 0.5))
-                                        }
-                                    }
-                                }
-                                .padding(.horizontal, 16)
-                            }
-                            .padding(.bottom, 12)
-                        }
-
-                        // 날짜 필터
-                        DateRangeFilter(startDate: $vm.startDate, endDate: $vm.endDate) {
-                            Task { await vm.fetchStats() }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 8)
-
-                        if let stats = vm.teamStats {
-                            StatsSummarySection(stats: stats)
-
-                            RankingSection(title: "득점 순위", players: stats.players,
-                                value: { $0.goal },
-                                valueLabel: { "\($0.goal)G" },
-                                subLabel: { "+\($0.assist)A" },
-                                raw: vm.raw)
-                            RankingSection(title: "어시스트 순위", players: stats.players,
-                                value: { $0.assist },
-                                valueLabel: { "\($0.assist)A" },
-                                subLabel: { "\($0.goal)G" },
-                                raw: vm.raw)
-                            RankingSection(title: "출전 시간 순위", players: stats.players,
-                                value: { $0.min },
-                                valueLabel: { "\($0.min)'" },
-                                subLabel: { "\($0.games)경기 · \($0.goal)G \($0.assist)A" },
-                                emptyHint: playingTimeEmptyHint,
-                                raw: vm.raw)
-                        } else if vm.isLoadingStats {
-                            ProgressView().padding(.top, 40)
-                        }
-                    }
-                    .padding(.bottom, 0)
-                }
-            }
-        }
-        .task { await vm.fetchTeams() }
-    }
-}
-
 // MARK: - StatsSummarySection (시즌 요약 + 실점·득실차 + 경기당 평균)
 
 private func fsSigned(_ n: Int) -> String { n > 0 ? "+\(n)" : "\(n)" }
@@ -535,6 +447,7 @@ struct RankingSection: View {
     @State private var selectedPlayer: PlayerStats? = nil
     @State private var showAll = false
     @Environment(\.fsTheme) var t
+    @Environment(\.fsContainerSize) private var containerSize
 
     var body: some View {
         // 자세히 보기는 기록 0인 선수까지 스쿼드 전원을 보여준다 (웹과 동일)
@@ -582,7 +495,8 @@ struct RankingSection: View {
             .fsCard()
             .padding(.horizontal, 16)
             .sheet(item: $selectedPlayer) { player in
-                PlayerStatDetailView(player: player, allPlayers: players, raw: raw)
+                PlayerStatDetailView(player: player, allPlayers: players, raw: raw,
+                                     presentsAsPage: containerSize.fsIsWideContainer)
                     .environment(\.fsTheme, t)
             }
             .sheet(isPresented: $showAll) {
@@ -592,6 +506,7 @@ struct RankingSection: View {
                     allPlayers: players, raw: raw
                 )
                 .environment(\.fsTheme, t)
+                .environment(\.fsContainerSize, containerSize)
             }
         } else if let hint = emptyHint {
             FSSectionHeader(title: title)
@@ -620,6 +535,7 @@ struct RankingAllSheet: View {
     var raw: TeamStatsRaw? = nil
     @State private var selectedPlayer: PlayerStats? = nil
     @Environment(\.fsTheme) var t
+    @Environment(\.fsContainerSize) private var containerSize
     @Environment(\.dismiss) var dismiss
 
     var body: some View {
@@ -670,7 +586,8 @@ struct RankingAllSheet: View {
         .presentationDetents([.large])
         .presentationDragIndicator(.hidden)
         .sheet(item: $selectedPlayer) { player in
-            PlayerStatDetailView(player: player, allPlayers: allPlayers, raw: raw)
+            PlayerStatDetailView(player: player, allPlayers: allPlayers, raw: raw,
+                                 presentsAsPage: containerSize.fsIsWideContainer)
                 .environment(\.fsTheme, t)
         }
     }
