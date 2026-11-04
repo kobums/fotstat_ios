@@ -2,6 +2,7 @@ import SwiftUI
 
 /// 우하단 원형 + 버튼(FAB). 부모 ZStack 위에 올려 화면 오른쪽 아래에 고정한다.
 /// accent 원형 위 plus 아이콘 + 그림자. 리스트 화면들의 "추가" 액션 공통.
+/// 부모 ZStack이 safe area를 존중하므로 여백은 safe area 기준 — 세로 탭 바·홈 인디케이터와 겹치지 않는다.
 struct FSFloatingActionButton: View {
     @Environment(\.fsTheme) private var t
     let action: () -> Void

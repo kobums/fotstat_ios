@@ -19,7 +19,8 @@ struct HomeView: View {
             ZStack {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
-                        // 헤더
+                        // 헤더 — 상단 여백은 고정값 대신 실제 safe area를 따른다
+                        // (다이내믹 아일랜드 기기 ≈59pt로 기존과 동일, 폴더블 펼침 등 비대칭 인셋 대응)
                         HStack(alignment: .bottom) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("안녕하세요")
@@ -39,7 +40,6 @@ struct HomeView: View {
                             .glassEffect(.regular.interactive(), in: Circle())
                         }
                         .padding(.horizontal, 16)
-                        .padding(.top, 60)
                         .padding(.bottom, 16)
 
                         if vm.isLoading {
@@ -80,7 +80,6 @@ struct HomeView: View {
                     }
                     .padding(.bottom, 100)
                 }
-                .ignoresSafeArea(edges: .top)
 
                 // FAB
                 FSFloatingActionButton { showAddTeam = true }

@@ -35,7 +35,8 @@ struct RecordView: View {
 
             ScrollView {
                 VStack(spacing: 0) {
-                    // 네비
+                    // 네비 — 상단 여백은 고정값 대신 실제 safe area를 따른다
+                    // (다이내믹 아일랜드 기기 ≈59pt로 기존과 동일, 폴더블 펼침 등 비대칭 인셋 대응)
                     HStack {
                         FSGlassButton(action: { dismiss() }) {
                             Image(systemName: "arrow.left")
@@ -51,7 +52,6 @@ struct RecordView: View {
                         Color.clear.frame(width: 36, height: 36)
                     }
                     .padding(.horizontal, 12)
-                    .padding(.top, 58)
                     .padding(.bottom, 8)
 
                     // 합계 카드
@@ -143,7 +143,6 @@ struct RecordView: View {
                 }
                 .padding(.bottom, 40)
             }
-            .ignoresSafeArea(edges: .top)
         }
         .background(t.bg.ignoresSafeArea())
         .toolbar(.hidden, for: .navigationBar)
