@@ -447,6 +447,7 @@ struct RankingSection: View {
     @State private var selectedPlayer: PlayerStats? = nil
     @State private var showAll = false
     @Environment(\.fsTheme) var t
+    @Environment(\.fsContainerSize) private var containerSize
 
     var body: some View {
         // 자세히 보기는 기록 0인 선수까지 스쿼드 전원을 보여준다 (웹과 동일)
@@ -494,7 +495,8 @@ struct RankingSection: View {
             .fsCard()
             .padding(.horizontal, 16)
             .sheet(item: $selectedPlayer) { player in
-                PlayerStatDetailView(player: player, allPlayers: players, raw: raw)
+                PlayerStatDetailView(player: player, allPlayers: players, raw: raw,
+                                     presentsAsPage: containerSize.fsIsWideContainer)
                     .environment(\.fsTheme, t)
             }
             .sheet(isPresented: $showAll) {
@@ -504,6 +506,7 @@ struct RankingSection: View {
                     allPlayers: players, raw: raw
                 )
                 .environment(\.fsTheme, t)
+                .environment(\.fsContainerSize, containerSize)
             }
         } else if let hint = emptyHint {
             FSSectionHeader(title: title)
@@ -532,6 +535,7 @@ struct RankingAllSheet: View {
     var raw: TeamStatsRaw? = nil
     @State private var selectedPlayer: PlayerStats? = nil
     @Environment(\.fsTheme) var t
+    @Environment(\.fsContainerSize) private var containerSize
     @Environment(\.dismiss) var dismiss
 
     var body: some View {
@@ -582,7 +586,8 @@ struct RankingAllSheet: View {
         .presentationDetents([.large])
         .presentationDragIndicator(.hidden)
         .sheet(item: $selectedPlayer) { player in
-            PlayerStatDetailView(player: player, allPlayers: allPlayers, raw: raw)
+            PlayerStatDetailView(player: player, allPlayers: allPlayers, raw: raw,
+                                 presentsAsPage: containerSize.fsIsWideContainer)
                 .environment(\.fsTheme, t)
         }
     }

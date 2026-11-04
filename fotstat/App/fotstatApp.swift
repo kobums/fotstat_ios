@@ -24,6 +24,7 @@ struct RootView: View {
     @EnvironmentObject var authManager: AuthManager
     @Environment(\.colorScheme) var colorScheme
     @AppStorage("themePreference") var themePreference: String = "system"
+    @State private var containerSize: CGSize = .zero
 
     private var resolvedScheme: ColorScheme {
         switch themePreference {
@@ -42,6 +43,8 @@ struct RootView: View {
             }
         }
         .environment(\.fsTheme, FSTheme(mode: resolvedScheme))
+        .environment(\.fsContainerSize, containerSize)
+        .onGeometryChange(for: CGSize.self) { $0.size } action: { containerSize = $0 }
         .preferredColorScheme(themePreference == "system" ? nil : resolvedScheme)
     }
 }

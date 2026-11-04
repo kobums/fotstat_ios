@@ -49,6 +49,10 @@ struct FSSelectTeamKey: EnvironmentKey {
     static let defaultValue: (() -> Void)? = nil
 }
 
+struct FSContainerSizeKey: EnvironmentKey {
+    static let defaultValue: CGSize = .zero
+}
+
 extension EnvironmentValues {
     var fsTheme: FSTheme {
         get { self[FSThemeKey.self] }
@@ -58,6 +62,18 @@ extension EnvironmentValues {
         get { self[FSSelectTeamKey.self] }
         set { self[FSSelectTeamKey.self] = newValue }
     }
+    /// 앱 창(RootView) 크기 — 시트 형태처럼 띄우기 전에 정해야 하는 값은
+    /// 기기 idiom 대신 이 값으로 판단한다 (폴더블 접기/펼치기 시 실시간 갱신).
+    var fsContainerSize: CGSize {
+        get { self[FSContainerSizeKey.self] }
+        set { self[FSContainerSizeKey.self] = newValue }
+    }
+}
+
+extension CGSize {
+    /// 넓은 페이지 시트를 띄울 만한 창인지 — 가로·세로 모두 640pt 이상.
+    /// iPad·폴더블 펼침 화면은 해당, iPhone(가로 포함)·iPad Split View 좁은 창은 제외.
+    var fsIsWideContainer: Bool { width >= 640 && height >= 640 }
 }
 
 // MARK: - Color Hex Init
