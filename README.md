@@ -96,7 +96,7 @@ fotstat_ios/
 ### 요구사항
 
 - Xcode 27.1+ (iOS 27.1 SDK)
-- iOS 26 SDK
+- iOS 26.4+ (배포 타겟)
 - 실행 중인 [fotstat API 서버](../fotstat_go)
 
 ### 1. Config.swift 생성
