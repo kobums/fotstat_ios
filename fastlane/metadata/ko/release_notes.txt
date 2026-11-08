@@ -1,3 +1,2 @@
-- 값 0 지표의 상위 % 배지 제거, 경기당 출전 시간 정수 표시
-- 선수 상세를 서버 통계 API(GET /player/:id/stats)로 전환
-- 선수 상세 화면 신설 (fotmob 3단 패턴)
+- iPhone Duo(폴더블) 대응: idiom 분기·고정 상단 여백 정리
+- 로그인 요청을 POST /jwt (JSON 본문)로 전환
