@@ -84,6 +84,38 @@ platform :ios do
     UI.success("✅ App Store 심사 제출 완료")
   end
 
+  desc "release 가 업로드 뒤에 끊겼을 때: 이미 올라간 현재 버전 빌드를 심사 제출 (빌드·업로드 없음)"
+  # altool 이 "UPLOAD SUCCEEDED" 와 함께 무해한 ERROR 줄을 내면 fastlane 이 실패로
+  # 처리해 release 가 업로드 직후 멈춘다. 다시 release 를 돌리면 같은 빌드번호로
+  # 재업로드를 시도하므로, 이 레인으로 심사 제출과 커밋·태그만 이어서 한다.
+  lane :resubmit do
+    key = load_api_key
+    # release 는 방금 만든 IPA 에서 버전을 읽지만 여기엔 IPA 가 없다.
+    # 버전·빌드를 명시하지 않으면 새 App Store 버전이 만들어지지 않아 제출이 멈춘다.
+    version = get_version_number(xcodeproj: XCODEPROJ, target: SCHEME)
+    build   = get_info_plist_value(path: INFOPLIST, key: "CFBundleVersion")
+    upload_to_app_store(
+      api_key: key,
+      skip_binary_upload: true,
+      app_version: version,
+      build_number: build.to_s,
+      submit_for_review: true,
+      reject_if_possible: true,
+      automatic_release: true,
+      force: true,
+      skip_screenshots: true,
+      skip_metadata: false,
+      run_precheck_before_submit: false,
+      precheck_include_in_app_purchases: false,
+      submission_information: {
+        export_compliance_uses_encryption: false,
+        add_id_info_uses_idfa: false
+      }
+    )
+    finalize_git(release: true)
+    UI.success("✅ App Store 심사 제출 완료")
+  end
+
   desc "마케팅 버전 올리기 (사용법: fastlane bump_version type:patch|minor|major)"
   lane :bump_version do |options|
     type = options[:type] || "patch"
