@@ -92,6 +92,9 @@ struct LoginView: View {
                 .disabled(vm.isLoading)
                 .padding(.top, 10)
 
+                FSLegalNotice()
+                    .padding(.top, 10)
+
                 Spacer()
 
                 Button { showRegister = true } label: {

@@ -129,6 +129,10 @@ struct SettingsView: View {
 
                         VStack(spacing: 0) {
                             infoRow(label: "버전", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—")
+                            Divider().overlay(t.line)
+                            linkRow(label: "이용약관", url: LegalLinks.terms)
+                            Divider().overlay(t.line)
+                            linkRow(label: "개인정보 처리방침", url: LegalLinks.privacy)
                         }
                         .background(t.bgElev)
                         .cornerRadius(14)
@@ -244,5 +248,22 @@ struct SettingsView: View {
                 .foregroundColor(t.textSec)
         }
         .padding(.horizontal, 16).padding(.vertical, 13)
+    }
+
+    @ViewBuilder
+    private func linkRow(label: String, url: URL) -> some View {
+        Link(destination: url) {
+            HStack {
+                Text(label)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(t.text)
+                Spacer()
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(t.textTer)
+            }
+            .padding(.horizontal, 16).padding(.vertical, 13)
+            .contentShape(Rectangle())
+        }
     }
 }
