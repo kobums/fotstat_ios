@@ -48,6 +48,8 @@ struct RegisterView: View {
                     FSPrimaryButton(title: "계정 만들기", isLoading: vm.isLoading) {
                         Task { await vm.register() }
                     }
+
+                    FSLegalNotice()
                 }
 
                 Spacer()
